@@ -1,4 +1,3 @@
-import React from 'react';
 import styles from './StatGrid.module.css';
 
 export interface Stat {

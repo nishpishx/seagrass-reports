@@ -1,4 +1,3 @@
-import React from 'react';
 import styles from './SummaryCard.module.css';
 
 interface SummaryCardProps {

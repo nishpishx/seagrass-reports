@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { Metric } from '../types';
 import styles from './MetricBar.module.css';
 

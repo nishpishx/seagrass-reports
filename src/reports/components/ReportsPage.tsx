@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useCallback } from 'react';
+import { useRef, useMemo, useCallback } from 'react';
 import ReportSidebar from './ReportSidebar';
 import MapOverlay, { DEFAULT_LAYERS } from './MapOverlay';
 import useReportMap from '../hooks/useReportMap';
@@ -25,7 +25,7 @@ export default function ReportsPage({ mapboxToken, mapStyle }: ReportsPageProps)
   const mapContainer = useRef<HTMLDivElement>(null);
 
   // ── Generate data (replace with real API calls / props) ──
-  const { path, seeds, bathymetry, seedsGJ, pathGJ, reportData, totalSeeds } = useMemo(() => {
+  const { bathymetry, seedsGJ, pathGJ, reportData, totalSeeds } = useMemo(() => {
     const path = generatePath();
     const seeds = generateSeeds(path);
     return {

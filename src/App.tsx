@@ -1,4 +1,3 @@
-import React from 'react';
 import { ReportsPage } from './reports';
 import './reports/styles/tokens.css';
 import 'mapbox-gl/dist/mapbox-gl.css';

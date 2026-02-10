@@ -1,8 +1,8 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback, useState, type RefObject } from 'react';
 import mapboxgl from 'mapbox-gl';
 
 interface UseReportMapOptions {
-  container: React.RefObject<HTMLDivElement | null>;
+  container: RefObject<HTMLDivElement | null>;
   accessToken: string;
   center: [number, number];
   zoom?: number;
@@ -181,7 +181,7 @@ export default function useReportMap({
       const map = mapRef.current;
       if (!map || !loaded) return;
 
-      let filter: mapboxgl.FilterSpecification | null = null;
+      let filter: any[] | null = null;
       if (visibleMissionIds.length === missionColors.length) {
         filter = null; // show all
       } else if (visibleMissionIds.length === 0) {

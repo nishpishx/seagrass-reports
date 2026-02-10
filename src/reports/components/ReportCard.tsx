@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import type { ReportSection } from '../types';
 import MetricBar from './MetricBar';
 import styles from './ReportCard.module.css';
@@ -23,7 +23,7 @@ export default function ReportCard({ section, animDelay = 0, onMapToggle }: Repo
   const [mapOn, setMapOn] = useState(false);
   const { color, icon } = STATUS_CONFIG[section.status] ?? STATUS_CONFIG.partial;
 
-  const handleMapToggle = (e: React.MouseEvent) => {
+  const handleMapToggle = (e: MouseEvent) => {
     e.stopPropagation();
     const next = !mapOn;
     setMapOn(next);

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import type { ReportData, ReportTab } from '../types';
+import { useState } from 'react';
+import type { ReportData } from '../types';
 import ReportCard from './ReportCard';
 import MissionLegend from './MissionLegend';
 import StatGrid from './StatGrid';
