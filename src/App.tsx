@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ReportsPage } from './reports';
+import { PlanMissionPage } from './plan-mission';
 import './reports/styles/tokens.css';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import styles from './App.module.css';
@@ -67,7 +68,7 @@ export default function App() {
               <circle cx="12" cy="12" r="3" />
             </svg>
           </div>
-          Seagrass
+          Reefgen Atlas
         </div>
 
         {TABS.map((t) => (
@@ -97,19 +98,7 @@ export default function App() {
             <div className={styles.placeholderText}>Coming soon</div>
           </div>
         )}
-        {tab === 'plan-mission' && (
-          <div className={styles.placeholder}>
-            <div className={styles.placeholderIcon}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
-            </div>
-            <div className={styles.placeholderTitle}>Plan Mission</div>
-            <div className={styles.placeholderText}>Coming soon</div>
-          </div>
-        )}
+        {tab === 'plan-mission' && <PlanMissionPage mapboxToken={MAPBOX_TOKEN} />}
       </div>
     </div>
   );
