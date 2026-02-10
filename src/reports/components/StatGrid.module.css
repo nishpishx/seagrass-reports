@@ -1,0 +1,26 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.box {
+  background: var(--rpt-card);
+  border: 1px solid var(--rpt-border);
+  border-radius: 6px;
+  padding: 12px;
+  text-align: center;
+}
+.val {
+  font-family: var(--rpt-mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--rpt-accent);
+}
+.label {
+  font-size: 10.5px;
+  color: var(--rpt-text-3);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

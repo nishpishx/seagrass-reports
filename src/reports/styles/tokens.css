@@ -1,0 +1,20 @@
+/* ═══ Seagrass Reports — Design Tokens ═══ */
+:root {
+  --rpt-bg: #0b1420;
+  --rpt-panel: #111d2e;
+  --rpt-card: #162336;
+  --rpt-card-hover: #1a2b40;
+  --rpt-border: #1e3348;
+  --rpt-border-light: #264060;
+  --rpt-text: #dfe8f1;
+  --rpt-text-2: #93adc2;
+  --rpt-text-3: #546d82;
+  --rpt-accent: #34d399;
+  --rpt-accent-dim: rgba(52, 211, 153, 0.1);
+  --rpt-accent2: #38bdf8;
+  --rpt-warn: #fbbf24;
+  --rpt-fail: #f87171;
+  --rpt-bar-bg: rgba(255, 255, 255, 0.05);
+  --rpt-font: 'DM Sans', system-ui, sans-serif;
+  --rpt-mono: 'JetBrains Mono', 'SF Mono', monospace;
+}

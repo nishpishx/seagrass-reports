@@ -1,0 +1,31 @@
+.card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: var(--rpt-card);
+  border: 1px solid var(--rpt-border);
+  border-radius: 8px;
+  margin-top: 8px;
+}
+.icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--rpt-accent-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rpt-text);
+}
+.text {
+  font-size: 12px;
+  color: var(--rpt-text-3);
+  line-height: 1.45;
+  margin-top: 3px;
+}

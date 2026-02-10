@@ -1,0 +1,270 @@
+import { ReportData, SeedPoint } from '../types';
+
+// ═══ Mission Definitions ═══
+export const MISSIONS = [
+  { id: 0, name: 'Mission Alpha',   date: 'Jan 12, 2026', color: '#34d399', seedCount: 218 },
+  { id: 1, name: 'Mission Bravo',   date: 'Jan 26, 2026', color: '#38bdf8', seedCount: 244 },
+  { id: 2, name: 'Mission Charlie', date: 'Feb 3, 2026',  color: '#fbbf24', seedCount: 206 },
+  { id: 3, name: 'Mission Delta',   date: 'Feb 9, 2026',  color: '#c084fc', seedCount: 179 },
+];
+
+export const MISSION_COLORS = MISSIONS.map((m) => m.color);
+
+// ═══ Map Config ═══
+export const MAP_CENTER: [number, number] = [177.012, -17.7615]; // [lng, lat]
+
+// ═══ Demo Path Generator — Replace with real GPS track ═══
+export function generatePath(): [number, number][] {
+  const coords: [number, number][] = [];
+  for (let i = 0; i <= 80; i++) {
+    const t = i / 80;
+    coords.push([
+      MAP_CENTER[0] - 0.018 + t * 0.036 + Math.cos(t * Math.PI * 1.8) * 0.005,
+      MAP_CENTER[1] - 0.014 + t * 0.028 + Math.sin(t * Math.PI * 2.5) * 0.004,
+    ]);
+  }
+  return coords;
+}
+
+// ═══ Demo Seed Generator — Replace with real DB query ═══
+export function generateSeeds(path: [number, number][]): SeedPoint[] {
+  const seeds: SeedPoint[] = [];
+  const counts = MISSIONS.map((m) => m.seedCount);
+  for (let m = 0; m < MISSIONS.length; m++) {
+    const s0 = Math.floor((m / 4) * path.length);
+    const s1 = Math.floor(((m + 1) / 4) * path.length);
+    const seg = path.slice(s0, s1);
+    for (let s = 0; s < counts[m]; s++) {
+      const base = seg[Math.floor(Math.random() * seg.length)];
+      seeds.push({
+        lng: base[0] + (Math.random() - 0.5) * 0.006,
+        lat: base[1] + (Math.random() - 0.5) * 0.006,
+        mission: m,
+        missionName: MISSIONS[m].name,
+        depth: Math.round((1.5 + Math.random() * 22) * 10) / 10,
+        date: MISSIONS[m].date,
+      });
+    }
+  }
+  return seeds;
+}
+
+// ═══ Demo Bathymetry Generator — Replace with real raster/tiles ═══
+export function generateBathymetryGeoJSON() {
+  const features: GeoJSON.Feature[] = [];
+  const cs = 0.003;
+  for (let r = -12; r < 12; r++) {
+    for (let c = -12; c < 12; c++) {
+      const lng = MAP_CENTER[0] + c * cs;
+      const lat = MAP_CENTER[1] + r * cs;
+      const dist = Math.sqrt(Math.pow((c + 6) * 0.7, 2) + Math.pow((r - 4) * 1.1, 2));
+      const depth = Math.max(0, 1.5 + dist * 1.8 + (Math.random() - 0.5) * 3);
+      features.push({
+        type: 'Feature',
+        properties: { depth: Math.round(depth * 10) / 10 },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[[lng, lat], [lng + cs, lat], [lng + cs, lat + cs], [lng, lat + cs], [lng, lat]]],
+        },
+      });
+    }
+  }
+  return { type: 'FeatureCollection' as const, features };
+}
+
+// ═══ Convert seeds to GeoJSON ═══
+export function seedsToGeoJSON(seeds: SeedPoint[]): GeoJSON.FeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: seeds.map((s) => ({
+      type: 'Feature' as const,
+      properties: {
+        mission: s.mission,
+        missionName: s.missionName,
+        depth: s.depth,
+        date: s.date,
+      },
+      geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] },
+    })),
+  };
+}
+
+export function pathToGeoJSON(coords: [number, number][]): GeoJSON.Feature {
+  return {
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'LineString', coordinates: coords },
+  };
+}
+
+// ═══ Report Tab Data ═══
+export function buildReportData(seeds: SeedPoint[]): ReportData {
+  const total = seeds.length;
+  const depthBuckets = [0, 0, 0, 0];
+  seeds.forEach((s) => {
+    if (s.depth < 5) depthBuckets[0]++;
+    else if (s.depth < 12) depthBuckets[1]++;
+    else if (s.depth < 20) depthBuckets[2]++;
+    else depthBuckets[3]++;
+  });
+  const depthPcts = depthBuckets.map((b) => Math.round((b / total) * 100));
+
+  return {
+    title: 'Coral Bay Seagrass Restoration',
+    subtitle: `${MISSIONS.length} missions · ${total.toLocaleString()} seeds planted · Updated Feb 10, 2026`,
+    missions: MISSIONS,
+    tabs: [
+      {
+        key: 'overview',
+        label: 'Overview',
+        sections: [
+          {
+            title: 'Planting Density',
+            status: 'pass',
+            description: 'Average seed density across the restoration corridor vs. recommended minimums.',
+            hasMapLayer: true,
+            metrics: [
+              { label: 'Avg Density', value: 38, target: 30, unit: 'seeds/100m²' },
+              { label: 'Min Density', value: 22, target: 20, unit: 'seeds/100m²' },
+              { label: 'Coverage Uniformity', value: 72, target: 80, unit: '%' },
+            ],
+          },
+          {
+            title: 'Depth Distribution',
+            status: 'warning',
+            description: 'Seeds should span multiple depth ranges for resilient meadow establishment.',
+            hasMapLayer: true,
+            metrics: [
+              { label: 'Shallow (0–5m)', value: 85, target: 60, unit: '%' },
+              { label: 'Mid (5–12m)', value: 62, target: 60, unit: '%' },
+              { label: 'Deep (12–20m)', value: 28, target: 60, unit: '%' },
+            ],
+          },
+          {
+            title: 'Survivability Forecast',
+            status: 'partial',
+            description: 'Estimated 6-month survival rate based on depth, substrate, and water temperature.',
+            metrics: [
+              { label: 'Projected Survival', value: 64, target: 75, unit: '%' },
+              { label: 'Substrate Match', value: 78, target: 80, unit: '%' },
+            ],
+          },
+        ],
+      },
+      {
+        key: 'coverage',
+        label: 'Coverage',
+        sections: [
+          {
+            title: 'Area Coverage',
+            status: 'warning',
+            description: 'Total area planted vs. the target restoration zone.',
+            hasMapLayer: true,
+            metrics: [
+              { label: 'Area Planted', value: 1.8, target: 2.5, unit: 'km²' },
+              { label: 'Corridor Width', value: 280, target: 400, unit: 'm' },
+              { label: 'Gap-Free Stretch', value: 2.1, target: 3.0, unit: 'km' },
+            ],
+          },
+          {
+            title: 'Substrate Suitability',
+            status: 'pass',
+            description: 'Sandy and muddy substrates support seagrass root systems.',
+            hasMapLayer: true,
+            metrics: [
+              { label: 'Sandy Substrate', value: 88, target: 80, unit: '%' },
+              { label: 'Muddy Substrate', value: 8, target: 10, unit: '%' },
+              { label: 'Rocky (avoid)', value: 4, target: 10, unit: '%', inverse: true },
+            ],
+          },
+          {
+            title: 'Proximity to Existing Meadows',
+            status: 'pass',
+            description: 'Nearby meadows improve genetic connectivity and natural reseeding.',
+            metrics: [
+              { label: 'Within 500m', value: 76, target: 60, unit: '%' },
+              { label: 'Within 1km', value: 94, target: 80, unit: '%' },
+            ],
+          },
+        ],
+      },
+      {
+        key: 'bathymetry',
+        label: 'Bathymetry',
+        sections: [
+          {
+            title: 'Depth Profile',
+            status: 'warning',
+            description: 'Balanced depth distribution increases resilience against sea-level and temperature shifts.',
+            hasMapLayer: true,
+            metrics: [
+              { label: '0 – 5m (Shallow)', value: depthPcts[0], target: 25, unit: '%' },
+              { label: '5 – 12m (Optimal)', value: depthPcts[1], target: 35, unit: '%' },
+              { label: '12 – 20m (Deep)', value: depthPcts[2], target: 25, unit: '%' },
+              { label: '20m+ (Very Deep)', value: depthPcts[3], target: 15, unit: '%' },
+            ],
+          },
+          {
+            title: 'Slope & Gradient',
+            status: 'pass',
+            description: 'Gentle slopes retain sediment and support root establishment.',
+            hasMapLayer: true,
+            metrics: [
+              { label: 'Gentle Slope (< 5°)', value: 82, target: 70, unit: '%' },
+              { label: 'Moderate (5–15°)', value: 14, target: 20, unit: '%' },
+              { label: 'Steep (> 15°)', value: 4, target: 10, unit: '%', inverse: true },
+            ],
+          },
+          {
+            title: 'Light Penetration',
+            status: 'partial',
+            description: 'Estimated PAR reaching the seabed at planting depth.',
+            metrics: [
+              { label: 'Adequate PAR', value: 68, target: 80, unit: '%' },
+              { label: 'Marginal PAR', value: 24, target: 15, unit: '%', inverse: true },
+              { label: 'Insufficient PAR', value: 8, target: 5, unit: '%', inverse: true },
+            ],
+          },
+        ],
+      },
+      {
+        key: 'missions',
+        label: 'Missions',
+        sections: [
+          {
+            title: 'Mission Density Comparison',
+            status: 'pass',
+            description: 'Planting density achieved per sortie.',
+            metrics: [
+              { label: 'Alpha – Density', value: 42, target: 30, unit: '/100m²' },
+              { label: 'Bravo – Density', value: 36, target: 30, unit: '/100m²' },
+              { label: 'Charlie – Density', value: 31, target: 30, unit: '/100m²' },
+              { label: 'Delta – Density', value: 28, target: 30, unit: '/100m²' },
+            ],
+          },
+          {
+            title: 'Temporal Spacing',
+            status: 'pass',
+            description: 'Time between missions for assessment and recovery.',
+            metrics: [
+              { label: 'Alpha → Bravo', value: 14, target: 10, unit: 'days' },
+              { label: 'Bravo → Charlie', value: 8, target: 10, unit: 'days' },
+              { label: 'Charlie → Delta', value: 6, target: 10, unit: 'days' },
+            ],
+          },
+          {
+            title: 'Per-Mission Depth Avg',
+            status: 'warning',
+            description: 'Deeper missions improve network resilience.',
+            metrics: [
+              { label: 'Alpha Avg Depth', value: 6.2, target: 10, unit: 'm' },
+              { label: 'Bravo Avg Depth', value: 8.1, target: 10, unit: 'm' },
+              { label: 'Charlie Avg Depth', value: 5.8, target: 10, unit: 'm' },
+              { label: 'Delta Avg Depth', value: 11.4, target: 10, unit: 'm' },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}

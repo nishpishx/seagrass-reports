@@ -1,0 +1,74 @@
+.controls {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 10;
+  background: rgba(11, 20, 32, 0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--rpt-border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  min-width: 180px;
+}
+.title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--rpt-text-3);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 12px;
+  color: var(--rpt-text-2);
+  cursor: pointer;
+  user-select: none;
+}
+.check {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--rpt-text-3);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  font-size: 9px;
+}
+.checkOn {
+  background: var(--rpt-accent);
+  border-color: var(--rpt-accent);
+  color: var(--rpt-bg);
+}
+
+/* Depth legend */
+.depthLegend {
+  position: absolute;
+  bottom: 36px;
+  left: 14px;
+  z-index: 10;
+  background: rgba(11, 20, 32, 0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--rpt-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.depthBar {
+  width: 140px;
+  height: 12px;
+  border-radius: 3px;
+  margin-bottom: 4px;
+  background: linear-gradient(to right, #a8edea, #38bdf8, #1e60a0, #0f2d50, #091728);
+}
+.depthLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--rpt-text-3);
+  font-family: var(--rpt-mono);
+}
