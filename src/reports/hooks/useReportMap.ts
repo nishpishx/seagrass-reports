@@ -11,28 +11,6 @@ interface UseReportMapOptions {
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
-// ── Scientific-style seagrass SVG (parameterised by colour) ──
-
-function seagrassSvg(color: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="48" viewBox="0 0 32 48">
-<rect x="14" y="38" width="4" height="8" rx="1.5" fill="#8B7355" opacity="0.35"/>
-<path d="M16 38 C14 30 11 20 9 8 C8.5 4 10 2 11 1" stroke="${color}" stroke-width="2.2" fill="none" opacity="0.65" stroke-linecap="round"/>
-<path d="M16 38 C18 28 21 18 22 6 C22.5 2 21 0.5 20 0" stroke="${color}" stroke-width="1.8" fill="none" opacity="0.6" stroke-linecap="round"/>
-<path d="M16 38 C15 32 13 24 12.5 14 C12 10 13 7 14 5" stroke="${color}" stroke-width="1.5" fill="none" opacity="0.55" stroke-linecap="round"/>
-<path d="M16 38 C17 33 18.5 26 19 18 C19.5 13 18.5 10 17.5 8" stroke="${color}" stroke-width="1.3" fill="none" opacity="0.5" stroke-linecap="round"/>
-<path d="M15.5 36 C14 28 11.5 20 10 10" stroke="${color}" stroke-width="0.5" fill="none" opacity="0.25"/>
-</svg>`;
-}
-
-function loadSvgImage(svg: string, w: number, h: number): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image(w, h);
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  });
-}
-
 export default function useReportMap({
   container,
   accessToken,
@@ -43,7 +21,6 @@ export default function useReportMap({
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [loaded, setLoaded] = useState(false);
   const missionColorsRef = useRef<string[]>([]);
-  const animFrameRef = useRef<number>(0);
 
   // ── Init map (runs once) ──
   useEffect(() => {
@@ -67,7 +44,6 @@ export default function useReportMap({
     mapRef.current = map;
 
     return () => {
-      cancelAnimationFrame(animFrameRef.current);
       map.remove();
       mapRef.current = null;
       setLoaded(false);
@@ -161,7 +137,7 @@ export default function useReportMap({
 
   // ── Lazily ensure a GeoJSON source + layers exist ──
   const ensureSectorDataLayers = useCallback(
-    async (missionColors: string[]) => {
+    (missionColors: string[]) => {
       const map = mapRef.current;
       if (!map || !loaded) return;
       missionColorsRef.current = missionColors;
@@ -174,16 +150,6 @@ export default function useReportMap({
         ...missionColors.flatMap((c, i) => [i, c]),
         '#ffffff',
       ];
-
-      // Load mission-coloured seagrass icons
-      await Promise.all(
-        missionColors.map(async (color, i) => {
-          const id = `seagrass-${i}`;
-          if (map.hasImage(id)) return;
-          const img = await loadSvgImage(seagrassSvg(color), 32, 48);
-          if (!map.hasImage(id)) map.addImage(id, img);
-        }),
-      );
 
       // Bathymetry
       map.addSource('bathymetry', { type: 'geojson', data: EMPTY_FC });
@@ -219,58 +185,32 @@ export default function useReportMap({
         layout: { visibility: 'none' },
       });
 
-      // Seeds — soft glow circle underneath for mission colour
+      // Seeds
       map.addSource('seeds', { type: 'geojson', data: EMPTY_FC });
       map.addLayer({
         id: 'seeds-glow',
         type: 'circle',
         source: 'seeds',
-        paint: { 'circle-radius': 10, 'circle-color': colorExpr, 'circle-opacity': 0.1, 'circle-blur': 1 },
+        paint: { 'circle-radius': 7, 'circle-color': colorExpr, 'circle-opacity': 0.15, 'circle-blur': 1 },
+        layout: { visibility: 'none' },
+      });
+      map.addLayer({
+        id: 'seeds-dot',
+        type: 'circle',
+        source: 'seeds',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 2, 14, 3.5, 17, 6],
+          'circle-color': colorExpr,
+          'circle-opacity': 0.88,
+          'circle-stroke-width': 0.5,
+          'circle-stroke-color': 'rgba(255,255,255,0.25)',
+        },
         layout: { visibility: 'none' },
       });
 
-      // Seeds — seagrass icon layer
-      const iconExpr: mapboxgl.Expression = [
-        'concat', 'seagrass-', ['to-string', ['get', 'mission']],
-      ];
-      map.addLayer({
-        id: 'seeds-icon',
-        type: 'symbol',
-        source: 'seeds',
-        layout: {
-          'icon-image': iconExpr,
-          'icon-size': ['interpolate', ['linear'], ['zoom'], 11, 0.35, 14, 0.55, 17, 0.95],
-          'icon-anchor': 'bottom',
-          'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
-          'icon-rotate': ['get', 'baseRot'],
-          visibility: 'none',
-        },
-        paint: {
-          'icon-opacity': [
-            'interpolate', ['linear'], ['get', 'depth'],
-            0, 0.9,
-            20, 0.6,
-          ],
-        },
-      });
-
-      // Wave animation — subtle sway
-      const animate = () => {
-        if (!mapRef.current || !mapRef.current.getLayer('seeds-icon')) return;
-        const t = performance.now() / 1000;
-        const offset = Math.sin(t * 0.9) * 4.5;
-        mapRef.current.setLayoutProperty(
-          'seeds-icon', 'icon-rotate',
-          ['+', ['get', 'baseRot'], offset] as any,
-        );
-        animFrameRef.current = requestAnimationFrame(animate);
-      };
-      animFrameRef.current = requestAnimationFrame(animate);
-
       // Seed hover popup
       const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 12 });
-      map.on('mouseenter', 'seeds-icon', (e) => {
+      map.on('mouseenter', 'seeds-dot', (e) => {
         map.getCanvas().style.cursor = 'pointer';
         const f = e.features?.[0];
         if (!f) return;
@@ -284,7 +224,7 @@ export default function useReportMap({
           )
           .addTo(map);
       });
-      map.on('mouseleave', 'seeds-icon', () => {
+      map.on('mouseleave', 'seeds-dot', () => {
         map.getCanvas().style.cursor = '';
         popup.remove();
       });
@@ -294,7 +234,7 @@ export default function useReportMap({
 
   // ── Update sector detail data ──
   const updateSectorData = useCallback(
-    async (opts: {
+    (opts: {
       pathGeoJSON: GeoJSON.Feature;
       seedsGeoJSON: GeoJSON.FeatureCollection;
       bathymetryGeoJSON: GeoJSON.FeatureCollection;
@@ -303,19 +243,20 @@ export default function useReportMap({
       const map = mapRef.current;
       if (!map || !loaded) return;
 
-      await ensureSectorDataLayers(opts.missionColors);
+      ensureSectorDataLayers(opts.missionColors);
       missionColorsRef.current = opts.missionColors;
 
       (map.getSource('bathymetry') as mapboxgl.GeoJSONSource).setData(opts.bathymetryGeoJSON);
       (map.getSource('path') as mapboxgl.GeoJSONSource).setData(opts.pathGeoJSON);
       (map.getSource('seeds') as mapboxgl.GeoJSONSource).setData(opts.seedsGeoJSON);
 
-      // Update glow colour expression
+      // Update color expression
       const colorExpr: mapboxgl.Expression = [
         'match', ['get', 'mission'],
         ...opts.missionColors.flatMap((c, i) => [i, c]),
         '#ffffff',
       ];
+      if (map.getLayer('seeds-dot')) map.setPaintProperty('seeds-dot', 'circle-color', colorExpr);
       if (map.getLayer('seeds-glow')) map.setPaintProperty('seeds-glow', 'circle-color', colorExpr);
     },
     [loaded, ensureSectorDataLayers],
@@ -326,7 +267,7 @@ export default function useReportMap({
     (visible: boolean) => {
       const map = mapRef.current;
       if (!map || !loaded) return;
-      const layers = ['bathymetry-fill', 'path-glow', 'path-line', 'seeds-glow', 'seeds-icon'];
+      const layers = ['bathymetry-fill', 'path-glow', 'path-line', 'seeds-glow', 'seeds-dot'];
       layers.forEach((id) => {
         if (map.getLayer(id)) {
           map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
@@ -365,7 +306,7 @@ export default function useReportMap({
         filter = ['any', ...visibleMissionIds.map((id) => ['==', ['get', 'mission'], id])] as any;
       }
 
-      ['seeds-icon', 'seeds-glow'].forEach((id) => {
+      ['seeds-dot', 'seeds-glow'].forEach((id) => {
         if (map.getLayer(id)) map.setFilter(id, filter);
       });
     },
