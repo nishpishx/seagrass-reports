@@ -53,5 +53,5 @@ export default function MapOverlay({ layers, onToggle }: MapOverlayProps) {
 export const DEFAULT_LAYERS: LayerDef[] = [
   { key: 'bathymetry', label: 'Bathymetry', layerIds: ['bathymetry-fill'] },
   { key: 'path', label: 'Planting Path', layerIds: ['path-glow', 'path-line'] },
-  { key: 'seeds', label: 'Seed Points', layerIds: ['seeds-glow', 'seeds-dot'] },
+  { key: 'seeds', label: 'Seagrass Seeds', layerIds: ['seeds-glow', 'seeds-icon'] },
 ];

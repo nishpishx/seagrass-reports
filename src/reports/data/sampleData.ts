@@ -83,6 +83,7 @@ export function seedsToGeoJSON(seeds: SeedPoint[]): GeoJSON.FeatureCollection {
         missionName: s.missionName,
         depth: s.depth,
         date: s.date,
+        baseRot: Math.round((Math.random() - 0.5) * 20),
       },
       geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] },
     })),
