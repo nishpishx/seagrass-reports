@@ -24,6 +24,9 @@ export type {
   Mission,
   SeedPoint,
   ReportData,
+  StudySite,
+  Sector,
+  SectorData,
 } from './types';
 
 // Data helpers (swap these for your real data sources)
@@ -38,3 +41,6 @@ export {
   pathToGeoJSON,
   buildReportData,
 } from './data/sampleData';
+
+// Study sites
+export { STUDY_SITES, generateSectorData, buildSiteSummary, sectorsToGeoJSON } from './data/studySites';

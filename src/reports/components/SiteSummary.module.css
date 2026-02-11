@@ -1,0 +1,59 @@
+.sectorCard {
+  background: var(--rpt-card);
+  border: 1px solid var(--rpt-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.sectorCard:hover {
+  background: var(--rpt-card-hover);
+  border-color: var(--rpt-border-light);
+}
+
+.sectorDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.sectorInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.sectorName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rpt-text);
+  margin-bottom: 2px;
+}
+
+.sectorMeta {
+  font-size: 11.5px;
+  color: var(--rpt-text-3);
+}
+
+.sectorArrow {
+  color: var(--rpt-text-3);
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.sectorCard:hover .sectorArrow {
+  transform: translateX(2px);
+  color: var(--rpt-accent);
+}
+
+.heading {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--rpt-text-3);
+  margin: 16px 0 10px;
+}

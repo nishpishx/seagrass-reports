@@ -51,3 +51,32 @@ export interface ReportData {
   tabs: ReportTab[];
   missions: Mission[];
 }
+
+// ═══ Study Sites ═══
+
+export interface Sector {
+  id: string;
+  name: string;
+  center: [number, number];
+  boundary: [number, number][];
+  color: string;
+}
+
+export interface StudySite {
+  id: string;
+  name: string;
+  region: string;
+  center: [number, number];
+  zoom: number;
+  sectors: Sector[];
+}
+
+export interface SectorData {
+  sectorId: string;
+  pathGeoJSON: GeoJSON.Feature;
+  seedsGeoJSON: GeoJSON.FeatureCollection;
+  bathymetryGeoJSON: GeoJSON.FeatureCollection;
+  reportData: ReportData;
+  totalSeeds: number;
+  missionColors: string[];
+}

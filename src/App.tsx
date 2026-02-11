@@ -68,7 +68,7 @@ export default function App() {
               <circle cx="12" cy="12" r="3" />
             </svg>
           </div>
-          Reefgen Atlas
+          Reefgen Cloud
         </div>
 
         {TABS.map((t) => (

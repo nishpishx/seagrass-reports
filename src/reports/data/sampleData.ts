@@ -14,13 +14,13 @@ export const MISSION_COLORS = MISSIONS.map((m) => m.color);
 export const MAP_CENTER: [number, number] = [177.012, -17.7615]; // [lng, lat]
 
 // ═══ Demo Path Generator — Replace with real GPS track ═══
-export function generatePath(): [number, number][] {
+export function generatePath(center: [number, number] = MAP_CENTER): [number, number][] {
   const coords: [number, number][] = [];
   for (let i = 0; i <= 80; i++) {
     const t = i / 80;
     coords.push([
-      MAP_CENTER[0] - 0.018 + t * 0.036 + Math.cos(t * Math.PI * 1.8) * 0.005,
-      MAP_CENTER[1] - 0.014 + t * 0.028 + Math.sin(t * Math.PI * 2.5) * 0.004,
+      center[0] - 0.018 + t * 0.036 + Math.cos(t * Math.PI * 1.8) * 0.005,
+      center[1] - 0.014 + t * 0.028 + Math.sin(t * Math.PI * 2.5) * 0.004,
     ]);
   }
   return coords;
@@ -50,13 +50,13 @@ export function generateSeeds(path: [number, number][]): SeedPoint[] {
 }
 
 // ═══ Demo Bathymetry Generator — Replace with real raster/tiles ═══
-export function generateBathymetryGeoJSON() {
+export function generateBathymetryGeoJSON(center: [number, number] = MAP_CENTER) {
   const features: GeoJSON.Feature[] = [];
   const cs = 0.003;
   for (let r = -12; r < 12; r++) {
     for (let c = -12; c < 12; c++) {
-      const lng = MAP_CENTER[0] + c * cs;
-      const lat = MAP_CENTER[1] + r * cs;
+      const lng = center[0] + c * cs;
+      const lat = center[1] + r * cs;
       const dist = Math.sqrt(Math.pow((c + 6) * 0.7, 2) + Math.pow((r - 4) * 1.1, 2));
       const depth = Math.max(0, 1.5 + dist * 1.8 + (Math.random() - 0.5) * 3);
       features.push({
@@ -98,7 +98,7 @@ export function pathToGeoJSON(coords: [number, number][]): GeoJSON.Feature {
 }
 
 // ═══ Report Tab Data ═══
-export function buildReportData(seeds: SeedPoint[]): ReportData {
+export function buildReportData(seeds: SeedPoint[], title = 'Coral Bay Seagrass Restoration'): ReportData {
   const total = seeds.length;
   const depthBuckets = [0, 0, 0, 0];
   seeds.forEach((s) => {
@@ -110,7 +110,7 @@ export function buildReportData(seeds: SeedPoint[]): ReportData {
   const depthPcts = depthBuckets.map((b) => Math.round((b / total) * 100));
 
   return {
-    title: 'Coral Bay Seagrass Restoration',
+    title,
     subtitle: `${MISSIONS.length} missions · ${total.toLocaleString()} seeds planted · Updated Feb 10, 2026`,
     missions: MISSIONS,
     tabs: [
