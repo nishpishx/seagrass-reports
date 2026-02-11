@@ -30,6 +30,7 @@ export const STUDY_SITES: StudySite[] = [
           [176.996, -17.748],
         ],
         color: '#34d399',
+        status: 'executed',
       },
       {
         id: 'coral-bay-south',
@@ -41,6 +42,7 @@ export const STUDY_SITES: StudySite[] = [
           [177.010, -17.763],
         ],
         color: '#38bdf8',
+        status: 'active',
       },
     ],
   },
@@ -61,6 +63,7 @@ export const STUDY_SITES: StudySite[] = [
           [72.966, 5.292],
         ],
         color: '#34d399',
+        status: 'executed',
       },
       {
         id: 'baa-reef-edge',
@@ -72,6 +75,7 @@ export const STUDY_SITES: StudySite[] = [
           [72.981, 5.282],
         ],
         color: '#fbbf24',
+        status: 'active',
       },
       {
         id: 'baa-channel',
@@ -83,6 +87,7 @@ export const STUDY_SITES: StudySite[] = [
           [72.976, 5.297],
         ],
         color: '#c084fc',
+        status: 'planned',
       },
     ],
   },
@@ -103,6 +108,7 @@ export const STUDY_SITES: StudySite[] = [
           [113.836, -25.788],
         ],
         color: '#34d399',
+        status: 'active',
       },
       {
         id: 'shark-faure',
@@ -114,6 +120,7 @@ export const STUDY_SITES: StudySite[] = [
           [113.851, -25.798],
         ],
         color: '#38bdf8',
+        status: 'planned',
       },
     ],
   },

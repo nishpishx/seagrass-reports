@@ -54,12 +54,15 @@ export interface ReportData {
 
 // ═══ Study Sites ═══
 
+export type SectorStatus = 'planned' | 'active' | 'executed';
+
 export interface Sector {
   id: string;
   name: string;
   center: [number, number];
   boundary: [number, number][];
   color: string;
+  status: SectorStatus;
 }
 
 export interface StudySite {
