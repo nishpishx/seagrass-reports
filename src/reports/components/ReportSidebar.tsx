@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import type { ReportData, StudySite, SectorData } from '../types';
+import type { ReportData, StudySite, SectorData, LiveFeedData } from '../types';
 import SiteSelector from './SiteSelector';
 import SiteSummary from './SiteSummary';
 import ReportCard from './ReportCard';
 import MissionLegend from './MissionLegend';
 import StatGrid from './StatGrid';
 import SummaryCard from './SummaryCard';
+import LiveSidebar from './LiveSidebar';
 import styles from './ReportSidebar.module.css';
 
 interface ReportSidebarProps {
@@ -22,6 +23,9 @@ interface ReportSidebarProps {
   totalSeeds: number;
   onMissionVisibilityChange?: (visibleIds: number[]) => void;
   onMapLayerToggle?: (layerIds: string[], active: boolean) => void;
+  /** Live feed data — when set, renders the live mission view instead of static report */
+  liveFeed?: LiveFeedData | null;
+  sectorName?: string;
 }
 
 export default function ReportSidebar({
@@ -37,6 +41,8 @@ export default function ReportSidebar({
   totalSeeds,
   onMissionVisibilityChange,
   onMapLayerToggle,
+  liveFeed,
+  sectorName,
 }: ReportSidebarProps) {
   const [activeTab, setActiveTab] = useState(data?.tabs[0]?.key ?? '');
   const selectedSite = sites.find((s) => s.id === selectedSiteId) ?? null;
@@ -61,7 +67,7 @@ export default function ReportSidebar({
           Report
         </div>
         <h1 className={styles.title}>
-          {data?.title ?? selectedSite?.name ?? 'Select a Site'}
+          {liveFeed ? `${sectorName} — Live Mission` : data?.title ?? selectedSite?.name ?? 'Select a Site'}
         </h1>
         <p className={styles.meta}>
           {data?.subtitle ?? (selectedSite ? `${selectedSite.region} · ${selectedSite.sectors.length} sectors` : 'Choose a study site to view reports')}
@@ -77,8 +83,8 @@ export default function ReportSidebar({
         onSectorChange={onSectorChange}
       />
 
-      {/* ── Tabs (only in sector view) ── */}
-      {!isSiteView && data && (
+      {/* ── Tabs (only in sector view, not live mode) ── */}
+      {!isSiteView && data && !liveFeed && (
         <div className={styles.tabs}>
           {data.tabs.map((tab) => (
             <button
@@ -113,13 +119,23 @@ export default function ReportSidebar({
           />
         )}
 
+        {/* ── Live mission view (active sectors) ── */}
+        {!isSiteView && liveFeed && (
+          <LiveSidebar
+            liveFeed={liveFeed}
+            missions={data?.missions}
+            historicalSeeds={totalSeeds}
+            onMissionVisibilityChange={onMissionVisibilityChange}
+          />
+        )}
+
         {/* ── Sector detail ── */}
-        {!isSiteView && data && (
+        {!isSiteView && !liveFeed && data && (
           <>
             {activeTab === 'overview' && (
               <StatGrid
                 stats={[
-                  { value: totalSeeds.toLocaleString(), label: 'Seeds Planted' },
+                  { value: totalSeeds.toLocaleString(), label: selectedSite?.plantType === 'shoots' ? 'Shoots Planted' : 'Seeds Planted' },
                   { value: String(data.missions.length), label: 'Missions' },
                   { value: '3.8 km', label: 'Path Length' },
                 ]}
@@ -133,6 +149,7 @@ export default function ReportSidebar({
                 </p>
                 <MissionLegend
                   missions={data.missions}
+                  plantType={selectedSite?.plantType}
                   onVisibilityChange={onMissionVisibilityChange}
                 />
               </>

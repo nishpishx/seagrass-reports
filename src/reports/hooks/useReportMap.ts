@@ -11,6 +11,30 @@ interface UseReportMapOptions {
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
+/** Compute centroid from a polygon ring (skips closing coordinate). */
+function polygonCentroid(ring: number[][]): [number, number] {
+  const pts = ring.slice(0, -1);
+  return [
+    pts.reduce((s, p) => s + p[0], 0) / pts.length,
+    pts.reduce((s, p) => s + p[1], 0) / pts.length,
+  ];
+}
+
+/** Convert polygon FeatureCollection → point FeatureCollection at centroids. */
+function toLabelPoints(fc: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: fc.features.map((f) => ({
+      type: 'Feature' as const,
+      properties: f.properties,
+      geometry: {
+        type: 'Point' as const,
+        coordinates: polygonCentroid((f.geometry as GeoJSON.Polygon).coordinates[0]),
+      },
+    })),
+  };
+}
+
 export default function useReportMap({
   container,
   accessToken,
@@ -69,8 +93,12 @@ export default function useReportMap({
       const src = map.getSource('sectors') as mapboxgl.GeoJSONSource | undefined;
       if (src) {
         src.setData(geojson ?? EMPTY_FC);
+        (map.getSource('sectors-label-pts') as mapboxgl.GeoJSONSource)?.setData(
+          geojson ? toLabelPoints(geojson) : EMPTY_FC,
+        );
       } else if (geojson) {
         map.addSource('sectors', { type: 'geojson', data: geojson });
+        map.addSource('sectors-label-pts', { type: 'geojson', data: toLabelPoints(geojson) });
         map.addLayer({
           id: 'sectors-fill',
           type: 'fill',
@@ -94,7 +122,7 @@ export default function useReportMap({
         map.addLayer({
           id: 'sectors-label',
           type: 'symbol',
-          source: 'sectors',
+          source: 'sectors-label-pts',
           layout: {
             'text-field': ['get', 'name'],
             'text-size': 12,
@@ -313,6 +341,98 @@ export default function useReportMap({
     [loaded],
   );
 
+  // ── Lazily create live-mode layers (robot + trail) ──
+  const ensureLiveLayers = useCallback(
+    () => {
+      const map = mapRef.current;
+      if (!map || !loaded) return;
+      if (map.getSource('robot')) return;
+
+      // Live path trail
+      map.addSource('live-path', {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } },
+      });
+      map.addLayer({
+        id: 'live-path-glow',
+        type: 'line',
+        source: 'live-path',
+        paint: { 'line-color': '#34d399', 'line-width': 8, 'line-opacity': 0.12, 'line-blur': 6 },
+      });
+      map.addLayer({
+        id: 'live-path-line',
+        type: 'line',
+        source: 'live-path',
+        paint: { 'line-color': '#34d399', 'line-width': 2.5, 'line-opacity': 0.8 },
+      });
+
+      // Robot position
+      map.addSource('robot', { type: 'geojson', data: EMPTY_FC });
+      map.addLayer({
+        id: 'robot-pulse',
+        type: 'circle',
+        source: 'robot',
+        paint: { 'circle-radius': 18, 'circle-color': '#34d399', 'circle-opacity': 0.15, 'circle-blur': 1 },
+      });
+      map.addLayer({
+        id: 'robot-dot',
+        type: 'circle',
+        source: 'robot',
+        paint: {
+          'circle-radius': 7,
+          'circle-color': '#34d399',
+          'circle-stroke-width': 2.5,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 1,
+        },
+      });
+    },
+    [loaded],
+  );
+
+  // ── Push live feed data to map sources ──
+  const updateLiveData = useCallback(
+    (opts: {
+      robotPosition: GeoJSON.Feature<GeoJSON.Point> | null;
+      seedDrops: GeoJSON.FeatureCollection<GeoJSON.Point>;
+      pathTrail: GeoJSON.Feature<GeoJSON.LineString>;
+    }) => {
+      const map = mapRef.current;
+      if (!map || !loaded) return;
+
+      ensureLiveLayers();
+
+      if (opts.robotPosition) {
+        (map.getSource('robot') as mapboxgl.GeoJSONSource).setData({
+          type: 'FeatureCollection',
+          features: [opts.robotPosition],
+        });
+      }
+      (map.getSource('live-path') as mapboxgl.GeoJSONSource).setData(opts.pathTrail);
+
+      // Update existing seeds source with live drops
+      const seedsSrc = map.getSource('seeds') as mapboxgl.GeoJSONSource | undefined;
+      if (seedsSrc) {
+        seedsSrc.setData(opts.seedDrops);
+      }
+    },
+    [loaded, ensureLiveLayers],
+  );
+
+  // ── Show / hide live-mode layers ──
+  const setLiveLayersVisible = useCallback(
+    (visible: boolean) => {
+      const map = mapRef.current;
+      if (!map || !loaded) return;
+      ['robot-pulse', 'robot-dot', 'live-path-glow', 'live-path-line'].forEach((id) => {
+        if (map.getLayer(id)) {
+          map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+        }
+      });
+    },
+    [loaded],
+  );
+
   return {
     map: mapRef,
     loaded,
@@ -323,5 +443,8 @@ export default function useReportMap({
     setSectorDataVisible,
     setLayerVisibility,
     filterMissions,
+    ensureLiveLayers,
+    updateLiveData,
+    setLiveLayersVisible,
   };
 }

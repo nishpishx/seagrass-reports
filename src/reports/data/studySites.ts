@@ -10,36 +10,49 @@ import {
   buildReportData,
 } from './sampleData';
 
+// ═══ Per-sector target counts (seeds or shoots) ═══
+const SECTOR_TARGETS: Record<string, number> = {
+  'dale-west':    9_000,
+  'dale-east':   26_000,
+  'bali-reef':       80,
+  'wa-north':       150,
+  'wa-south':        30,
+  'unc-alpha':    1_000,
+  'unc-bravo':    1_000,
+  'unc-charlie':    500,
+};
+
 // ═══ Study Sites ═══
 
 export const STUDY_SITES: StudySite[] = [
   {
-    id: 'coral-bay',
-    name: 'Coral Bay',
-    region: 'Fiji',
-    center: [177.012, -17.7615],
-    zoom: 13,
+    id: 'dale',
+    name: 'Project Seagrass',
+    region: 'Dale, Wales',
+    center: [-5.1589, 51.7097],
+    zoom: 14,
+    plantType: 'seeds',
     sectors: [
       {
-        id: 'coral-bay-north',
-        name: 'North Corridor',
-        center: [177.005, -17.755],
+        id: 'dale-west',
+        name: 'West Plot',
+        center: [-5.163, 51.713],
         boundary: [
-          [176.996, -17.748], [177.014, -17.748],
-          [177.014, -17.762], [176.996, -17.762],
-          [176.996, -17.748],
+          [-5.167, 51.711], [-5.159, 51.711],
+          [-5.159, 51.715], [-5.167, 51.715],
+          [-5.167, 51.711],
         ],
         color: '#34d399',
         status: 'executed',
       },
       {
-        id: 'coral-bay-south',
-        name: 'South Shelf',
-        center: [177.019, -17.770],
+        id: 'dale-east',
+        name: 'East Plot',
+        center: [-5.145, 51.7075],
         boundary: [
-          [177.010, -17.763], [177.028, -17.763],
-          [177.028, -17.777], [177.010, -17.777],
-          [177.010, -17.763],
+          [-5.152, 51.704], [-5.138, 51.704],
+          [-5.138, 51.711], [-5.152, 51.711],
+          [-5.152, 51.704],
         ],
         color: '#38bdf8',
         status: 'active',
@@ -47,79 +60,103 @@ export const STUDY_SITES: StudySite[] = [
     ],
   },
   {
-    id: 'baa-atoll',
-    name: 'Baa Atoll',
-    region: 'Maldives',
-    center: [72.98, 5.28],
-    zoom: 13,
+    id: 'bali',
+    name: 'LINI Shoot Planting',
+    region: 'Bali, Indonesia',
+    center: [115.2545, -8.7153],
+    zoom: 17,
+    plantType: 'shoots',
     sectors: [
       {
-        id: 'baa-lagoon',
-        name: 'Inner Lagoon',
-        center: [72.975, 5.285],
+        id: 'bali-reef',
+        name: 'Reef Flat',
+        center: [115.2545, -8.7153],
         boundary: [
-          [72.966, 5.292], [72.984, 5.292],
-          [72.984, 5.278], [72.966, 5.278],
-          [72.966, 5.292],
+          [115.2535, -8.7161], [115.2555, -8.7161],
+          [115.2555, -8.7145], [115.2535, -8.7145],
+          [115.2535, -8.7161],
+        ],
+        color: '#34d399',
+        status: 'active',
+      },
+    ],
+  },
+  {
+    id: 'wa-dnr',
+    name: 'WA Dept. of Natural Resources',
+    region: 'Washington State, USA',
+    center: [-122.8237, 47.2294],
+    zoom: 16,
+    plantType: 'shoots',
+    sectors: [
+      {
+        id: 'wa-north',
+        name: 'North Bed',
+        center: [-122.826, 47.231],
+        boundary: [
+          [-122.828, 47.2298], [-122.824, 47.2298],
+          [-122.824, 47.2322], [-122.828, 47.2322],
+          [-122.828, 47.2298],
         ],
         color: '#34d399',
         status: 'executed',
       },
       {
-        id: 'baa-reef-edge',
-        name: 'Reef Edge',
-        center: [72.990, 5.275],
+        id: 'wa-south',
+        name: 'South Bed',
+        center: [-122.822, 47.228],
         boundary: [
-          [72.981, 5.282], [72.999, 5.282],
-          [72.999, 5.268], [72.981, 5.268],
-          [72.981, 5.282],
+          [-122.8232, 47.2272], [-122.8208, 47.2272],
+          [-122.8208, 47.2288], [-122.8232, 47.2288],
+          [-122.8232, 47.2272],
         ],
-        color: '#fbbf24',
+        color: '#38bdf8',
+        status: 'active',
+      },
+    ],
+  },
+  {
+    id: 'unc',
+    name: 'University of North Carolina',
+    region: 'North Carolina, USA',
+    center: [-76.6144, 34.6844],
+    zoom: 15,
+    plantType: 'seeds',
+    sectors: [
+      {
+        id: 'unc-alpha',
+        name: 'Alpha Plot',
+        center: [-76.620, 34.6865],
+        boundary: [
+          [-76.6225, 34.6845], [-76.6175, 34.6845],
+          [-76.6175, 34.6885], [-76.6225, 34.6885],
+          [-76.6225, 34.6845],
+        ],
+        color: '#34d399',
+        status: 'executed',
+      },
+      {
+        id: 'unc-bravo',
+        name: 'Bravo Plot',
+        center: [-76.610, 34.683],
+        boundary: [
+          [-76.6125, 34.681], [-76.6075, 34.681],
+          [-76.6075, 34.685], [-76.6125, 34.685],
+          [-76.6125, 34.681],
+        ],
+        color: '#38bdf8',
         status: 'active',
       },
       {
-        id: 'baa-channel',
-        name: 'Channel Pass',
-        center: [72.985, 5.290],
+        id: 'unc-charlie',
+        name: 'Charlie Plot',
+        center: [-76.615, 34.680],
         boundary: [
-          [72.976, 5.297], [72.994, 5.297],
-          [72.994, 5.283], [72.976, 5.283],
-          [72.976, 5.297],
+          [-76.617, 34.6785], [-76.613, 34.6785],
+          [-76.613, 34.6815], [-76.617, 34.6815],
+          [-76.617, 34.6785],
         ],
         color: '#c084fc',
-        status: 'planned',
-      },
-    ],
-  },
-  {
-    id: 'shark-bay',
-    name: 'Shark Bay',
-    region: 'Western Australia',
-    center: [113.85, -25.80],
-    zoom: 13,
-    sectors: [
-      {
-        id: 'shark-wooramel',
-        name: 'Wooramel Bank',
-        center: [113.845, -25.795],
-        boundary: [
-          [113.836, -25.788], [113.854, -25.788],
-          [113.854, -25.802], [113.836, -25.802],
-          [113.836, -25.788],
-        ],
-        color: '#34d399',
-        status: 'active',
-      },
-      {
-        id: 'shark-faure',
-        name: 'Faure Sill',
-        center: [113.860, -25.805],
-        boundary: [
-          [113.851, -25.798], [113.869, -25.798],
-          [113.869, -25.812], [113.851, -25.812],
-          [113.851, -25.798],
-        ],
-        color: '#38bdf8',
         status: 'planned',
       },
     ],
@@ -128,15 +165,25 @@ export const STUDY_SITES: StudySite[] = [
 
 // ═══ Generate all data for a single sector ═══
 
-export function generateSectorData(sector: Sector, siteName: string): SectorData {
-  const path = generatePath(sector.center);
-  const seeds = generateSeeds(path);
+export function generateSectorData(sector: Sector, site: StudySite): SectorData {
+  const path = generatePath(sector.boundary);
+  const targetCount = SECTOR_TARGETS[sector.id];
+
+  // Scale mission seed counts to match this sector's target
+  const baseTotal = MISSIONS.reduce((sum, m) => sum + m.seedCount, 0);
+  const scale = targetCount != null && baseTotal > 0 ? targetCount / baseTotal : 1;
+  const scaledMissions = MISSIONS.map((m) => ({
+    ...m,
+    seedCount: Math.round(m.seedCount * scale),
+  }));
+
+  const seeds = generateSeeds(path, targetCount, scaledMissions);
   return {
     sectorId: sector.id,
     pathGeoJSON: pathToGeoJSON(path),
     seedsGeoJSON: seedsToGeoJSON(seeds),
     bathymetryGeoJSON: generateBathymetryGeoJSON(sector.center),
-    reportData: buildReportData(seeds, `${siteName} — ${sector.name}`),
+    reportData: buildReportData(seeds, `${site.name} — ${sector.name}`, site.plantType, scaledMissions),
     totalSeeds: seeds.length,
     missionColors: MISSION_COLORS,
   };
@@ -159,7 +206,7 @@ export function buildSiteSummary(
     totalMissions: MISSIONS.length,
     reportData: {
       title: `${site.name} — Site Overview`,
-      subtitle: `${site.region} · ${site.sectors.length} sectors · ${totalSeeds.toLocaleString()} total seeds`,
+      subtitle: `${site.region} · ${site.sectors.length} sectors · ${totalSeeds.toLocaleString()} total ${site.plantType}`,
       missions: MISSIONS,
       tabs: [],
     },

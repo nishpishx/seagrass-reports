@@ -65,12 +65,15 @@ export interface Sector {
   status: SectorStatus;
 }
 
+export type PlantType = 'seeds' | 'shoots';
+
 export interface StudySite {
   id: string;
   name: string;
   region: string;
   center: [number, number];
   zoom: number;
+  plantType: PlantType;
   sectors: Sector[];
 }
 
@@ -82,4 +85,34 @@ export interface SectorData {
   reportData: ReportData;
   totalSeeds: number;
   missionColors: string[];
+}
+
+// ═══ Live Feed Types ═══
+
+export type ConnectionStatus = 'connecting' | 'connected' | 'degraded' | 'disconnected';
+
+export interface LiveSeedDrop {
+  id: string;
+  lng: number;
+  lat: number;
+  depth: number;
+  timestamp: number;
+}
+
+export interface LiveFeedStats {
+  totalSeeds: number;
+  distanceCovered: number;
+  elapsedTime: number;
+  currentSpeed: number;
+  avgDepth: number;
+  pathProgress: number;
+}
+
+export interface LiveFeedData {
+  robotPosition: GeoJSON.Feature<GeoJSON.Point> | null;
+  seedDrops: GeoJSON.FeatureCollection<GeoJSON.Point>;
+  pathTrail: GeoJSON.Feature<GeoJSON.LineString>;
+  stats: LiveFeedStats;
+  connectionStatus: ConnectionStatus;
+  recentDrops: LiveSeedDrop[];
 }

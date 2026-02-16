@@ -1,4 +1,4 @@
-import { ReportData, SeedPoint } from '../types';
+import { Mission, PlantType, ReportData, SeedPoint } from '../types';
 
 // ═══ Mission Definitions ═══
 export const MISSIONS = [
@@ -11,38 +11,113 @@ export const MISSIONS = [
 export const MISSION_COLORS = MISSIONS.map((m) => m.color);
 
 // ═══ Map Config ═══
-export const MAP_CENTER: [number, number] = [177.012, -17.7615]; // [lng, lat]
+export const MAP_CENTER: [number, number] = [-5.1589, 51.7097]; // [lng, lat] — Dale, Wales
 
-// ═══ Demo Path Generator — Replace with real GPS track ═══
-export function generatePath(center: [number, number] = MAP_CENTER): [number, number][] {
-  const coords: [number, number][] = [];
-  for (let i = 0; i <= 80; i++) {
-    const t = i / 80;
-    coords.push([
-      center[0] - 0.018 + t * 0.036 + Math.cos(t * Math.PI * 1.8) * 0.005,
-      center[1] - 0.014 + t * 0.028 + Math.sin(t * Math.PI * 2.5) * 0.004,
-    ]);
+const DEG_TO_M = 111_320;
+
+/**
+ * Default rectangular boundary around MAP_CENTER for backward compatibility.
+ * Matches the original path extent (~0.036 lng × 0.028 lat).
+ */
+const DEFAULT_BOUNDARY: [number, number][] = [
+  [MAP_CENTER[0] - 0.018, MAP_CENTER[1] - 0.014],
+  [MAP_CENTER[0] + 0.018, MAP_CENTER[1] - 0.014],
+  [MAP_CENTER[0] + 0.018, MAP_CENTER[1] + 0.014],
+  [MAP_CENTER[0] - 0.018, MAP_CENTER[1] + 0.014],
+  [MAP_CENTER[0] - 0.018, MAP_CENTER[1] - 0.014],
+];
+
+// ═══ Lawnmower Path Generator ═══
+
+/**
+ * Generate a boustrophedon (lawnmower) path inside a rectangular sector boundary.
+ * The path sweeps back and forth along the longer axis of the rectangle.
+ */
+export function generatePath(boundary: [number, number][] = DEFAULT_BOUNDARY): [number, number][] {
+  // boundary = [p0, p1, p2, p3, p0] (closed ring, 4 corners)
+  const p0 = boundary[0];
+  const p1 = boundary[1];
+  const p3 = boundary[3];
+
+  // Two edge vectors from p0
+  const edge01: [number, number] = [p1[0] - p0[0], p1[1] - p0[1]];
+  const edge03: [number, number] = [p3[0] - p0[0], p3[1] - p0[1]];
+
+  // Compute lengths in meters
+  const cosLat = Math.cos((p0[1] * Math.PI) / 180);
+  const len01 = Math.sqrt((edge01[0] * cosLat * DEG_TO_M) ** 2 + (edge01[1] * DEG_TO_M) ** 2);
+  const len03 = Math.sqrt((edge03[0] * cosLat * DEG_TO_M) ** 2 + (edge03[1] * DEG_TO_M) ** 2);
+
+  // Sweep along the longer edge, step along the shorter edge
+  let sweepDir: [number, number], stepDir: [number, number];
+  let sweepLen: number, stepLen: number;
+  if (len01 >= len03) {
+    sweepDir = edge01; sweepLen = len01;
+    stepDir = edge03; stepLen = len03;
+  } else {
+    sweepDir = edge03; sweepLen = len03;
+    stepDir = edge01; stepLen = len01;
   }
+
+  // ~30m between parallel passes, ~10m between points
+  const LINE_SPACING_M = 30;
+  const POINT_SPACING_M = 10;
+  const numPasses = Math.max(2, Math.round(stepLen / LINE_SPACING_M));
+  const pointsPerPass = Math.max(4, Math.round(sweepLen / POINT_SPACING_M));
+
+  // Inset slightly (5%) so the path doesn't sit exactly on the boundary edge
+  const inset = 0.05;
+
+  const coords: [number, number][] = [];
+  for (let pass = 0; pass <= numPasses; pass++) {
+    const tStep = inset + (pass / numPasses) * (1 - 2 * inset);
+    const forward = pass % 2 === 0;
+
+    for (let pt = 0; pt <= pointsPerPass; pt++) {
+      const tSweep = forward
+        ? inset + (pt / pointsPerPass) * (1 - 2 * inset)
+        : inset + (1 - pt / pointsPerPass) * (1 - 2 * inset);
+
+      coords.push([
+        p0[0] + sweepDir[0] * tSweep + stepDir[0] * tStep,
+        p0[1] + sweepDir[1] * tSweep + stepDir[1] * tStep,
+      ]);
+    }
+  }
+
   return coords;
 }
 
-// ═══ Demo Seed Generator — Replace with real DB query ═══
-export function generateSeeds(path: [number, number][]): SeedPoint[] {
+// ═══ Demo Seed Generator — Seeds/shoots planted along the path ═══
+export function generateSeeds(
+  path: [number, number][],
+  totalCount?: number,
+  missions: Mission[] = MISSIONS,
+): SeedPoint[] {
   const seeds: SeedPoint[] = [];
-  const counts = MISSIONS.map((m) => m.seedCount);
-  for (let m = 0; m < MISSIONS.length; m++) {
-    const s0 = Math.floor((m / 4) * path.length);
-    const s1 = Math.floor(((m + 1) / 4) * path.length);
+  const baseCounts = missions.map((m) => m.seedCount);
+  const baseTotal = baseCounts.reduce((a, b) => a + b, 0);
+
+  // Scale per-mission counts to match the requested total
+  const scale = totalCount != null && baseTotal > 0 ? totalCount / baseTotal : 1;
+  const counts = baseCounts.map((c) => Math.round(c * scale));
+
+  for (let m = 0; m < missions.length; m++) {
+    const s0 = Math.floor((m / missions.length) * path.length);
+    const s1 = Math.floor(((m + 1) / missions.length) * path.length);
     const seg = path.slice(s0, s1);
     for (let s = 0; s < counts[m]; s++) {
-      const base = seg[Math.floor(Math.random() * seg.length)];
+      // Distribute seeds evenly along the path segment
+      const idx = Math.min(Math.floor((s / counts[m]) * seg.length), seg.length - 1);
+      const base = seg[idx];
       seeds.push({
-        lng: base[0] + (Math.random() - 0.5) * 0.006,
-        lat: base[1] + (Math.random() - 0.5) * 0.006,
+        // Tiny jitter (~3m) so dots don't stack exactly on the line
+        lng: base[0] + (Math.random() - 0.5) * 0.00005,
+        lat: base[1] + (Math.random() - 0.5) * 0.00005,
         mission: m,
-        missionName: MISSIONS[m].name,
+        missionName: missions[m].name,
         depth: Math.round((1.5 + Math.random() * 22) * 10) / 10,
-        date: MISSIONS[m].date,
+        date: missions[m].date,
       });
     }
   }
@@ -98,7 +173,14 @@ export function pathToGeoJSON(coords: [number, number][]): GeoJSON.Feature {
 }
 
 // ═══ Report Tab Data ═══
-export function buildReportData(seeds: SeedPoint[], title = 'Coral Bay Seagrass Restoration'): ReportData {
+export function buildReportData(
+  seeds: SeedPoint[],
+  title = 'Seagrass Restoration',
+  plantType: PlantType = 'seeds',
+  missions: Mission[] = MISSIONS,
+): ReportData {
+  const unit = plantType;
+  const unitSingular = plantType === 'seeds' ? 'seed' : 'shoot';
   const total = seeds.length;
   const depthBuckets = [0, 0, 0, 0];
   seeds.forEach((s) => {
@@ -111,8 +193,8 @@ export function buildReportData(seeds: SeedPoint[], title = 'Coral Bay Seagrass 
 
   return {
     title,
-    subtitle: `${MISSIONS.length} missions · ${total.toLocaleString()} seeds planted · Updated Feb 10, 2026`,
-    missions: MISSIONS,
+    subtitle: `${missions.length} missions · ${total.toLocaleString()} ${unit} planted · Updated Feb 10, 2026`,
+    missions,
     tabs: [
       {
         key: 'overview',
@@ -121,18 +203,18 @@ export function buildReportData(seeds: SeedPoint[], title = 'Coral Bay Seagrass 
           {
             title: 'Planting Density',
             status: 'pass',
-            description: 'Average seed density across the restoration corridor vs. recommended minimums.',
+            description: `Average ${unitSingular} density across the restoration corridor vs. recommended minimums.`,
             hasMapLayer: true,
             metrics: [
-              { label: 'Avg Density', value: 38, target: 30, unit: 'seeds/100m²' },
-              { label: 'Min Density', value: 22, target: 20, unit: 'seeds/100m²' },
+              { label: 'Avg Density', value: 38, target: 30, unit: `${unit}/100m²` },
+              { label: 'Min Density', value: 22, target: 20, unit: `${unit}/100m²` },
               { label: 'Coverage Uniformity', value: 72, target: 80, unit: '%' },
             ],
           },
           {
             title: 'Depth Distribution',
             status: 'warning',
-            description: 'Seeds should span multiple depth ranges for resilient meadow establishment.',
+            description: `${plantType === 'seeds' ? 'Seeds' : 'Shoots'} should span multiple depth ranges for resilient meadow establishment.`,
             hasMapLayer: true,
             metrics: [
               { label: 'Shallow (0–5m)', value: 85, target: 60, unit: '%' },

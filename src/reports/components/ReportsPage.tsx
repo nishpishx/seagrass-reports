@@ -1,11 +1,14 @@
 import { useRef, useState, useMemo, useCallback, useEffect } from 'react';
 import mapboxgl from 'mapbox-gl';
 import ReportSidebar from './ReportSidebar';
-import MapOverlay, { DEFAULT_LAYERS } from './MapOverlay';
+import MapOverlay, { DEFAULT_LAYERS, LIVE_LAYERS } from './MapOverlay';
 import useReportMap from '../hooks/useReportMap';
+import useLiveFeed from '../hooks/useLiveFeed';
 import { STUDY_SITES, generateSectorData, buildSiteSummary, sectorsToGeoJSON } from '../data/studySites';
 import type { SectorData } from '../types';
 import styles from './ReportsPage.module.css';
+
+const LIVE_MISSION_COLOR = '#34d399';
 
 interface ReportsPageProps {
   mapboxToken: string;
@@ -22,12 +25,14 @@ export default function ReportsPage({ mapboxToken, mapStyle }: ReportsPageProps)
   const selectedSite = STUDY_SITES.find((s) => s.id === selectedSiteId) ?? null;
   const selectedSector = selectedSite?.sectors.find((s) => s.id === selectedSectorId) ?? null;
 
+  const isLiveMode = selectedSector?.status === 'active';
+
   // ── Generate sector data for selected site ──
   const sectorDataMap = useMemo(() => {
     const map = new Map<string, SectorData>();
     if (!selectedSite) return map;
     for (const sector of selectedSite.sectors) {
-      map.set(sector.id, generateSectorData(sector, selectedSite.name));
+      map.set(sector.id, generateSectorData(sector, selectedSite));
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -41,6 +46,15 @@ export default function ReportsPage({ mapboxToken, mapStyle }: ReportsPageProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSiteId, sectorDataMap]);
 
+  // Store historical seeds features for merging with live drops
+  const historicalSeedsRef = useRef<GeoJSON.Feature[]>([]);
+
+  // Extend mission colors palette with the live mission color
+  const liveMissionColors = useMemo(() => {
+    if (!activeSectorData) return [];
+    return [...activeSectorData.missionColors, LIVE_MISSION_COLOR];
+  }, [activeSectorData]);
+
   // ── Map hook ──
   const {
     map: mapRef,
@@ -52,12 +66,21 @@ export default function ReportsPage({ mapboxToken, mapStyle }: ReportsPageProps)
     setSectorDataVisible,
     setLayerVisibility,
     filterMissions,
+    ensureLiveLayers,
+    updateLiveData,
+    setLiveLayersVisible,
   } = useReportMap({
     container: mapContainer,
     accessToken: mapboxToken,
     center: selectedSite?.center ?? [0, 20],
     zoom: selectedSite?.zoom ?? 3,
     style: mapStyle,
+  });
+
+  // ── Live feed hook (only active when sector status is 'active') ──
+  const liveFeed = useLiveFeed({
+    sectorBoundary: selectedSector?.boundary ?? [[0, 0], [0.01, 0], [0.01, 0.01], [0, 0.01], [0, 0]],
+    enabled: isLiveMode && loaded,
   });
 
   // ── Effect: site changed → fly to site, show sector polygons ──
@@ -67,29 +90,70 @@ export default function ReportsPage({ mapboxToken, mapStyle }: ReportsPageProps)
     setSectorPolygons(sectorsToGeoJSON(selectedSite.sectors));
     setSectorPolygonsVisible(true);
     setSectorDataVisible(false);
-  }, [selectedSiteId, loaded, flyTo, setSectorPolygons, setSectorPolygonsVisible, setSectorDataVisible, selectedSite]);
+    setLiveLayersVisible(false);
+  }, [selectedSiteId, loaded, flyTo, setSectorPolygons, setSectorPolygonsVisible, setSectorDataVisible, setLiveLayersVisible, selectedSite]);
 
   // ── Effect: sector changed → zoom to sector & load data, or back to site ──
   useEffect(() => {
     if (!loaded) return;
 
-    if (activeSectorData && selectedSector) {
+    if (selectedSector && activeSectorData) {
       flyTo(selectedSector.center, 14.5);
-      updateSectorData({
-        pathGeoJSON: activeSectorData.pathGeoJSON,
-        seedsGeoJSON: activeSectorData.seedsGeoJSON,
-        bathymetryGeoJSON: activeSectorData.bathymetryGeoJSON,
-        missionColors: activeSectorData.missionColors,
-      });
-      setSectorDataVisible(true);
-      setSectorPolygonsVisible(false);
+
+      if (isLiveMode) {
+        // Live mode: keep historical seeds, add live mission color to palette
+        historicalSeedsRef.current = activeSectorData.seedsGeoJSON.features;
+        ensureLiveLayers();
+        updateSectorData({
+          pathGeoJSON: activeSectorData.pathGeoJSON,
+          seedsGeoJSON: activeSectorData.seedsGeoJSON,
+          bathymetryGeoJSON: activeSectorData.bathymetryGeoJSON,
+          missionColors: liveMissionColors,
+        });
+        setSectorDataVisible(true);
+        setLiveLayersVisible(true);
+        setSectorPolygonsVisible(false);
+      } else {
+        // Static mode: load all sector data normally, hide live layers
+        historicalSeedsRef.current = [];
+        setLiveLayersVisible(false);
+        updateSectorData({
+          pathGeoJSON: activeSectorData.pathGeoJSON,
+          seedsGeoJSON: activeSectorData.seedsGeoJSON,
+          bathymetryGeoJSON: activeSectorData.bathymetryGeoJSON,
+          missionColors: activeSectorData.missionColors,
+        });
+        setSectorDataVisible(true);
+        setSectorPolygonsVisible(false);
+      }
     } else if (selectedSite) {
+      historicalSeedsRef.current = [];
       flyTo(selectedSite.center, selectedSite.zoom);
       setSectorDataVisible(false);
+      setLiveLayersVisible(false);
       setSectorPolygonsVisible(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSectorId, loaded]);
+
+  // ── Effect: push live feed data to map each poll, merged with historical seeds ──
+  useEffect(() => {
+    if (!isLiveMode || !loaded || !liveFeed.robotPosition) return;
+
+    const mergedSeeds: GeoJSON.FeatureCollection<GeoJSON.Point> = {
+      type: 'FeatureCollection',
+      features: [
+        ...(historicalSeedsRef.current as GeoJSON.Feature<GeoJSON.Point>[]),
+        ...liveFeed.seedDrops.features,
+      ],
+    };
+
+    updateLiveData({
+      robotPosition: liveFeed.robotPosition,
+      seedDrops: mergedSeeds,
+      pathTrail: liveFeed.pathTrail,
+    });
+  }, [isLiveMode, loaded, liveFeed.robotPosition, liveFeed.seedDrops, liveFeed.pathTrail, updateLiveData]);
 
   // ── Click handler: click sector polygon on map → drill in ──
   useEffect(() => {
@@ -140,11 +204,17 @@ export default function ReportsPage({ mapboxToken, mapStyle }: ReportsPageProps)
         totalSeeds={activeSectorData?.totalSeeds ?? 0}
         onMissionVisibilityChange={handleMissionVisibility}
         onMapLayerToggle={handleMapLayerToggle}
+        liveFeed={isLiveMode ? liveFeed : null}
+        sectorName={selectedSector?.name}
       />
       <div className={styles.mapArea}>
         <div ref={mapContainer} className={styles.map} />
         {selectedSectorId && (
-          <MapOverlay layers={DEFAULT_LAYERS} onToggle={handleOverlayToggle} />
+          <MapOverlay
+            key={isLiveMode ? 'live' : 'default'}
+            layers={isLiveMode ? LIVE_LAYERS : DEFAULT_LAYERS}
+            onToggle={handleOverlayToggle}
+          />
         )}
       </div>
     </div>

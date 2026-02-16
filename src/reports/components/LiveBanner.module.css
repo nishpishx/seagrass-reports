@@ -1,0 +1,45 @@
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(52, 211, 153, 0.06);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rpt-accent);
+  flex-shrink: 0;
+  animation: pulse 2s ease-in-out infinite;
+}
+.label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--rpt-accent);
+}
+.robotId {
+  margin-left: auto;
+  font-size: 11px;
+  font-family: var(--rpt-mono);
+  color: var(--rpt-text-3);
+}
+
+/* Status variants */
+.connecting .dot { background: var(--rpt-warn); animation: pulse 1s ease-in-out infinite; }
+.connecting .label { color: var(--rpt-warn); }
+.degraded .dot { background: var(--rpt-warn); }
+.degraded .label { color: var(--rpt-warn); }
+.disconnected { border-color: rgba(248, 113, 113, 0.2); background: rgba(248, 113, 113, 0.06); }
+.disconnected .dot { background: var(--rpt-fail); animation: none; }
+.disconnected .label { color: var(--rpt-fail); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}

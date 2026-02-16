@@ -1,15 +1,63 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import type { StudySite, Sector } from '../../reports/types';
+import { computeRectBoundary } from '../geo';
 import styles from './PlanMissionSidebar.module.css';
 
 type SectorType = 'rectangle' | 'polygon';
 
-export default function PlanMissionSidebar() {
-  const [studySite, setStudySite] = useState('');
-  const [sector, setSector] = useState('');
+const SECTOR_COLORS = ['#34d399', '#38bdf8', '#fbbf24', '#c084fc', '#f472b6', '#fb923c', '#a3e635'];
+
+interface PlanMissionSidebarProps {
+  sites: StudySite[];
+  selectedSiteId: string | null;
+  selectedSectorId: string | null;
+  onSiteChange: (id: string | null) => void;
+  onSectorChange: (id: string | null) => void;
+  onAddSite: (site: StudySite) => void;
+  onAddSector: (sector: Sector) => void;
+  onUpdateDraft: (boundary: [number, number][] | null) => void;
+  onRequestMapClick: (cb: (lngLat: [number, number]) => void) => void;
+  onClearMapClick: () => void;
+}
+
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+export default function PlanMissionSidebar({
+  sites,
+  selectedSiteId,
+  selectedSectorId,
+  onSiteChange,
+  onSectorChange,
+  onAddSite,
+  onAddSector,
+  onUpdateDraft,
+  onRequestMapClick,
+  onClearMapClick,
+}: PlanMissionSidebarProps) {
+  // ── Site / sector selection ──
+  const [showNewSite, setShowNewSite] = useState(false);
   const [showNewSector, setShowNewSector] = useState(false);
   const [sectorType, setSectorType] = useState<SectorType>('rectangle');
 
-  // Path settings
+  // ── New site fields ──
+  const [siteName, setSiteName] = useState('');
+  const [siteRegion, setSiteRegion] = useState('');
+  const [siteLat, setSiteLat] = useState('');
+  const [siteLng, setSiteLng] = useState('');
+
+  // ── New sector fields ──
+  const [sectorName, setSectorName] = useState('');
+  const [rectAngle, setRectAngle] = useState('0');
+  const [rectLength, setRectLength] = useState('500');
+  const [rectWidth, setRectWidth] = useState('250');
+  const [draftCenter, setDraftCenter] = useState<[number, number] | null>(null);
+
+  // Path settings (kept as-is for future wiring)
   const [pathWidth, setPathWidth] = useState('');
   const [pathLength, setPathLength] = useState('');
   const [pathAngle, setPathAngle] = useState('');
@@ -17,12 +65,128 @@ export default function PlanMissionSidebar() {
   const [plantSpacing, setPlantSpacing] = useState('');
   const [pathGenerated, setPathGenerated] = useState(false);
 
-  // Sector rectangle settings
-  const [rectAngle, setRectAngle] = useState('0');
-  const [rectLength, setRectLength] = useState('100');
-  const [rectWidth, setRectWidth] = useState('50');
+  const selectedSite = sites.find((s) => s.id === selectedSiteId) ?? null;
+  const hasSite = selectedSiteId !== null;
 
-  const hasSite = studySite !== '' && studySite !== '__add_new__';
+  // ── Update draft preview when rectangle params change ──
+  useEffect(() => {
+    if (!draftCenter) return;
+    const angle = parseFloat(rectAngle) || 0;
+    const length = parseFloat(rectLength) || 100;
+    const width = parseFloat(rectWidth) || 50;
+    const boundary = computeRectBoundary(draftCenter, angle, length, width);
+    onUpdateDraft(boundary);
+  }, [draftCenter, rectAngle, rectLength, rectWidth, onUpdateDraft]);
+
+  // ── Site dropdown handler ──
+  const handleSiteSelect = useCallback(
+    (value: string) => {
+      if (value === '__add_new__') {
+        setShowNewSite(true);
+        onSiteChange(null);
+      } else {
+        setShowNewSite(false);
+        onSiteChange(value || null);
+      }
+      setShowNewSector(false);
+      setDraftCenter(null);
+      onUpdateDraft(null);
+    },
+    [onSiteChange, onUpdateDraft],
+  );
+
+  // ── Sector dropdown handler ──
+  const handleSectorSelect = useCallback(
+    (value: string) => {
+      if (value === '__add_new__') {
+        setShowNewSector(true);
+        onSectorChange(null);
+      } else {
+        setShowNewSector(false);
+        setDraftCenter(null);
+        onUpdateDraft(null);
+        onSectorChange(value || null);
+      }
+    },
+    [onSectorChange, onUpdateDraft],
+  );
+
+  // ── Create site ──
+  const handleCreateSite = useCallback(() => {
+    const name = siteName.trim();
+    if (!name) return;
+    const lat = parseFloat(siteLat);
+    const lng = parseFloat(siteLng);
+    if (isNaN(lat) || isNaN(lng)) return;
+
+    const site: StudySite = {
+      id: slugify(name) || `site-${Date.now()}`,
+      name,
+      region: siteRegion.trim() || 'Unknown',
+      center: [lng, lat],
+      zoom: 13,
+      plantType: 'seeds',
+      sectors: [],
+    };
+
+    onAddSite(site);
+    setShowNewSite(false);
+    setSiteName('');
+    setSiteRegion('');
+    setSiteLat('');
+    setSiteLng('');
+  }, [siteName, siteRegion, siteLat, siteLng, onAddSite]);
+
+  // ── Pick site location on map ──
+  const handlePickSiteLocation = useCallback(() => {
+    onRequestMapClick(([lng, lat]) => {
+      setSiteLng(lng.toFixed(6));
+      setSiteLat(lat.toFixed(6));
+    });
+  }, [onRequestMapClick]);
+
+  // ── Draw Rectangle (click map to place center) ──
+  const handleDrawRectangle = useCallback(() => {
+    onRequestMapClick((lngLat) => {
+      setDraftCenter(lngLat);
+    });
+  }, [onRequestMapClick]);
+
+  // ── Save sector ──
+  const handleSaveSector = useCallback(() => {
+    if (!draftCenter || !selectedSiteId) return;
+
+    const name = sectorName.trim() || `Sector ${(selectedSite?.sectors.length ?? 0) + 1}`;
+    const angle = parseFloat(rectAngle) || 0;
+    const length = parseFloat(rectLength) || 100;
+    const width = parseFloat(rectWidth) || 50;
+    const boundary = computeRectBoundary(draftCenter, angle, length, width);
+    const colorIdx = (selectedSite?.sectors.length ?? 0) % SECTOR_COLORS.length;
+
+    const sector: Sector = {
+      id: `${selectedSiteId}-${slugify(name) || Date.now()}`,
+      name,
+      center: draftCenter,
+      boundary,
+      color: SECTOR_COLORS[colorIdx],
+      status: 'planned',
+    };
+
+    onAddSector(sector);
+    setShowNewSector(false);
+    setDraftCenter(null);
+    setSectorName('');
+    setRectAngle('0');
+    setRectLength('500');
+    setRectWidth('250');
+  }, [draftCenter, selectedSiteId, selectedSite, sectorName, rectAngle, rectLength, rectWidth, onAddSector]);
+
+  // ── Clear draft ──
+  const handleClearDraft = useCallback(() => {
+    setDraftCenter(null);
+    onUpdateDraft(null);
+    onClearMapClick();
+  }, [onUpdateDraft, onClearMapClick]);
 
   return (
     <div className={styles.sidebar}>
@@ -56,7 +220,7 @@ export default function PlanMissionSidebar() {
           <input
             className={styles.searchInput}
             type="text"
-            placeholder="Search for a place…"
+            placeholder="Search for a place"
           />
         </div>
 
@@ -75,31 +239,111 @@ export default function PlanMissionSidebar() {
           <label className={styles.fieldLabel}>Study Site</label>
           <select
             className={styles.select}
-            value={studySite}
-            onChange={(e) => setStudySite(e.target.value)}
+            value={showNewSite ? '__add_new__' : selectedSiteId ?? ''}
+            onChange={(e) => handleSiteSelect(e.target.value)}
           >
-            <option value="">Select a study site…</option>
-            <option value="__add_new__">+ Add New Site…</option>
+            <option value="">Select a study site</option>
+            {sites.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} — {s.region}
+              </option>
+            ))}
+            <option value="__add_new__">+ Add New Site</option>
           </select>
+
+          {/* ── New Site panel ── */}
+          {showNewSite && (
+            <div className={styles.sitePanel}>
+              <div className={styles.inputGrid}>
+                <div>
+                  <label className={styles.fieldLabel}>Name</label>
+                  <input
+                    className={styles.input}
+                    type="text"
+                    placeholder="e.g. Coral Bay"
+                    value={siteName}
+                    onChange={(e) => setSiteName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className={styles.fieldLabel}>Region</label>
+                  <input
+                    className={styles.input}
+                    type="text"
+                    placeholder="e.g. Fiji"
+                    value={siteRegion}
+                    onChange={(e) => setSiteRegion(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className={styles.inputGrid} style={{ marginTop: 8 }}>
+                <div>
+                  <label className={styles.fieldLabel}>Latitude</label>
+                  <input
+                    className={styles.input}
+                    type="number"
+                    step="any"
+                    placeholder="-17.76"
+                    value={siteLat}
+                    onChange={(e) => setSiteLat(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className={styles.fieldLabel}>Longitude</label>
+                  <input
+                    className={styles.input}
+                    type="number"
+                    step="any"
+                    placeholder="177.01"
+                    value={siteLng}
+                    onChange={(e) => setSiteLng(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className={styles.btnRow}>
+                <button className={styles.btnSecondary} onClick={handlePickSiteLocation}>
+                  Pick on Map
+                </button>
+                <button
+                  className={styles.btnSuccess}
+                  disabled={!siteName.trim() || !siteLat || !siteLng}
+                  onClick={handleCreateSite}
+                >
+                  Create Site
+                </button>
+              </div>
+            </div>
+          )}
 
           <label className={styles.fieldLabel}>Sector</label>
           <select
             className={styles.select}
-            value={sector}
+            value={showNewSector ? '__add_new__' : selectedSectorId ?? ''}
             disabled={!hasSite}
-            onChange={(e) => {
-              setSector(e.target.value);
-              setShowNewSector(e.target.value === '__add_new__');
-            }}
+            onChange={(e) => handleSectorSelect(e.target.value)}
           >
-            <option value="">Select a sector…</option>
-            <option value="__add_new__">+ Add New Sector…</option>
+            <option value="">Select a sector</option>
+            {selectedSite?.sectors.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+            <option value="__add_new__">+ Add New Sector</option>
           </select>
 
           {/* ── New Sector panel ── */}
           {showNewSector && (
             <div className={styles.sectorPanel}>
-              <label className={styles.fieldLabel}>Sector Type</label>
+              <label className={styles.fieldLabel}>Sector Name</label>
+              <input
+                className={styles.input}
+                type="text"
+                placeholder={`Sector ${(selectedSite?.sectors.length ?? 0) + 1}`}
+                value={sectorName}
+                onChange={(e) => setSectorName(e.target.value)}
+              />
+
+              <label className={styles.fieldLabel} style={{ marginTop: 12 }}>Sector Type</label>
               <div className={styles.typeToggle}>
                 <button
                   className={`${styles.typeBtn} ${sectorType === 'rectangle' ? styles.typeBtnActive : ''}`}
@@ -119,7 +363,7 @@ export default function PlanMissionSidebar() {
                 <>
                   <div className={styles.inputGrid} style={{ marginTop: 12 }}>
                     <div>
-                      <label className={styles.fieldLabel}>Angle (°)</label>
+                      <label className={styles.fieldLabel}>Angle (\u00b0)</label>
                       <input className={styles.input} type="number" value={rectAngle} onChange={(e) => setRectAngle(e.target.value)} />
                     </div>
                     <div>
@@ -132,8 +376,18 @@ export default function PlanMissionSidebar() {
                     <input className={styles.input} type="number" value={rectWidth} onChange={(e) => setRectWidth(e.target.value)} />
                   </div>
                   <div className={styles.btnRow}>
-                    <button className={styles.btnPrimary}>Draw Rectangle</button>
+                    <button
+                      className={styles.btnPrimary}
+                      onClick={handleDrawRectangle}
+                    >
+                      {draftCenter ? 'Reposition' : 'Draw Rectangle'}
+                    </button>
                   </div>
+                  {draftCenter && (
+                    <div className={styles.draftInfo}>
+                      Center: {draftCenter[1].toFixed(5)}, {draftCenter[0].toFixed(5)}
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className={styles.btnRow} style={{ marginTop: 12 }}>
@@ -142,8 +396,16 @@ export default function PlanMissionSidebar() {
               )}
 
               <div className={styles.btnRow}>
-                <button className={styles.btnDanger}>Clear Draft</button>
-                <button className={styles.btnSuccess}>Save Sector</button>
+                <button className={styles.btnDanger} onClick={handleClearDraft}>
+                  Clear Draft
+                </button>
+                <button
+                  className={styles.btnSuccess}
+                  disabled={!draftCenter}
+                  onClick={handleSaveSector}
+                >
+                  Save Sector
+                </button>
               </div>
             </div>
           )}
@@ -170,28 +432,28 @@ export default function PlanMissionSidebar() {
           <div className={styles.inputGrid}>
             <div>
               <label className={styles.fieldLabel}>Width (m)</label>
-              <input className={styles.input} type="number" placeholder="—" value={pathWidth} onChange={(e) => setPathWidth(e.target.value)} />
+              <input className={styles.input} type="number" placeholder="\u2014" value={pathWidth} onChange={(e) => setPathWidth(e.target.value)} />
             </div>
             <div>
               <label className={styles.fieldLabel}>Length (m)</label>
-              <input className={styles.input} type="number" placeholder="—" value={pathLength} onChange={(e) => setPathLength(e.target.value)} />
+              <input className={styles.input} type="number" placeholder="\u2014" value={pathLength} onChange={(e) => setPathLength(e.target.value)} />
             </div>
           </div>
 
           <div className={styles.inputGrid} style={{ marginTop: 8 }}>
             <div>
-              <label className={styles.fieldLabel}>Angle (°)</label>
-              <input className={styles.input} type="number" placeholder="—" value={pathAngle} onChange={(e) => setPathAngle(e.target.value)} />
+              <label className={styles.fieldLabel}>Angle (\u00b0)</label>
+              <input className={styles.input} type="number" placeholder="\u2014" value={pathAngle} onChange={(e) => setPathAngle(e.target.value)} />
             </div>
             <div>
               <label className={styles.fieldLabel}>Row Spacing (m)</label>
-              <input className={styles.input} type="number" placeholder="—" step="any" value={rowSpacing} onChange={(e) => setRowSpacing(e.target.value)} />
+              <input className={styles.input} type="number" placeholder="\u2014" step="any" value={rowSpacing} onChange={(e) => setRowSpacing(e.target.value)} />
             </div>
           </div>
 
           <div style={{ marginTop: 8 }}>
             <label className={styles.fieldLabel}>Plant Spacing (m)</label>
-            <input className={styles.input} type="number" placeholder="—" step="any" value={plantSpacing} onChange={(e) => setPlantSpacing(e.target.value)} />
+            <input className={styles.input} type="number" placeholder="\u2014" step="any" value={plantSpacing} onChange={(e) => setPlantSpacing(e.target.value)} />
           </div>
 
           <div className={styles.btnRow}>

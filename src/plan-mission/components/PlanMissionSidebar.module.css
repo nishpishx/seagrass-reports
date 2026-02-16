@@ -231,9 +231,24 @@
   margin: 14px 0;
 }
 
+/* ── New site panel ── */
+.sitePanel {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rpt-border);
+}
+
 /* ── Sector panel reveal ── */
 .sectorPanel {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--rpt-border);
+}
+
+/* ── Draft info ── */
+.draftInfo {
+  font-size: 11px;
+  font-family: var(--rpt-mono);
+  color: var(--rpt-text-3);
+  margin-top: 8px;
 }

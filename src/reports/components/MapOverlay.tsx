@@ -55,3 +55,11 @@ export const DEFAULT_LAYERS: LayerDef[] = [
   { key: 'path', label: 'Planting Path', layerIds: ['path-glow', 'path-line'] },
   { key: 'seeds', label: 'Seed Points', layerIds: ['seeds-glow', 'seeds-dot'] },
 ];
+
+export const LIVE_LAYERS: LayerDef[] = [
+  { key: 'robot', label: 'Robot', layerIds: ['robot-pulse', 'robot-dot'] },
+  { key: 'live-path', label: 'Actual Path', layerIds: ['live-path-glow', 'live-path-line'] },
+  { key: 'path', label: 'Planned Path', layerIds: ['path-glow', 'path-line'] },
+  { key: 'seeds', label: 'Seed Drops', layerIds: ['seeds-glow', 'seeds-dot'] },
+  { key: 'bathymetry', label: 'Bathymetry', layerIds: ['bathymetry-fill'] },
+];
