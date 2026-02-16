@@ -125,7 +125,7 @@ export const STUDY_SITES: StudySite[] = [
     sectors: [
       {
         id: 'unc-alpha',
-        name: 'Alpha Plot',
+        name: 'Oscar Shoal',
         center: [-76.620, 34.6865],
         boundary: [
           [-76.6225, 34.6845], [-76.6175, 34.6845],
@@ -137,7 +137,7 @@ export const STUDY_SITES: StudySite[] = [
       },
       {
         id: 'unc-bravo',
-        name: 'Bravo Plot',
+        name: 'Muddy Bay',
         center: [-76.610, 34.683],
         boundary: [
           [-76.6125, 34.681], [-76.6075, 34.681],
@@ -149,7 +149,7 @@ export const STUDY_SITES: StudySite[] = [
       },
       {
         id: 'unc-charlie',
-        name: 'Charlie Plot',
+        name: 'Study Site 1',
         center: [-76.615, 34.680],
         boundary: [
           [-76.617, 34.6785], [-76.613, 34.6785],
