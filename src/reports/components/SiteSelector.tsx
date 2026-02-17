@@ -16,6 +16,7 @@ export default function SiteSelector({
   onSiteChange,
   onSectorChange,
 }: SiteSelectorProps) {
+  const isAllSites = selectedSiteId === '__all__';
   const selectedSite = sites.find((s) => s.id === selectedSiteId) ?? null;
 
   return (
@@ -31,6 +32,7 @@ export default function SiteSelector({
         }}
       >
         <option value="">Select a study site…</option>
+        <option value="__all__">All Sites</option>
         {sites.map((s) => (
           <option key={s.id} value={s.id}>
             {s.name} — {s.region}
@@ -42,15 +44,25 @@ export default function SiteSelector({
       <select
         className={styles.select}
         value={selectedSectorId ?? ''}
-        disabled={!selectedSite}
+        disabled={!selectedSite && !isAllSites}
         onChange={(e) => onSectorChange(e.target.value || null)}
       >
         <option value="">All Sectors (Overview)</option>
-        {selectedSite?.sectors.map((sec) => (
-          <option key={sec.id} value={sec.id}>
-            {sec.name}
-          </option>
-        ))}
+        {isAllSites
+          ? sites.map((site) => (
+              <optgroup key={site.id} label={site.name}>
+                {site.sectors.map((sec) => (
+                  <option key={sec.id} value={sec.id}>
+                    {sec.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))
+          : selectedSite?.sectors.map((sec) => (
+              <option key={sec.id} value={sec.id}>
+                {sec.name}
+              </option>
+            ))}
       </select>
 
       {selectedSectorId && (

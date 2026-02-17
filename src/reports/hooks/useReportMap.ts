@@ -20,18 +20,22 @@ function polygonCentroid(ring: number[][]): [number, number] {
   ];
 }
 
-/** Convert polygon FeatureCollection → point FeatureCollection at centroids. */
+/** Convert polygon FeatureCollection → point FeatureCollection at centroids.
+ *  Point features (e.g. site-level labels) are passed through as-is. */
 function toLabelPoints(fc: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
-    features: fc.features.map((f) => ({
-      type: 'Feature' as const,
-      properties: f.properties,
-      geometry: {
-        type: 'Point' as const,
-        coordinates: polygonCentroid((f.geometry as GeoJSON.Polygon).coordinates[0]),
-      },
-    })),
+    features: fc.features.map((f) => {
+      if (f.geometry.type === 'Point') return f;
+      return {
+        type: 'Feature' as const,
+        properties: f.properties,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: polygonCentroid((f.geometry as GeoJSON.Polygon).coordinates[0]),
+        },
+      };
+    }),
   };
 }
 
@@ -125,13 +129,20 @@ export default function useReportMap({
           source: 'sectors-label-pts',
           layout: {
             'text-field': ['get', 'name'],
-            'text-size': 12,
+            'text-size': ['match', ['get', 'labelType'], 'site', 14, 12],
+            'text-font': [
+              'match', ['get', 'labelType'],
+              'site', ['literal', ['DIN Pro Bold', 'Arial Unicode MS Bold']],
+              ['literal', ['DIN Pro Medium', 'Arial Unicode MS Regular']],
+            ],
             'text-anchor': 'center',
+            'symbol-sort-key': ['match', ['get', 'labelType'], 'site', 0, 1],
+            'text-allow-overlap': false,
           },
           paint: {
             'text-color': '#dfe8f1',
             'text-halo-color': '#0b1420',
-            'text-halo-width': 1.5,
+            'text-halo-width': ['match', ['get', 'labelType'], 'site', 2, 1.5],
           },
         });
 

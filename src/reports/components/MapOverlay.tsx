@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styles from './MapOverlay.module.css';
 
 interface LayerDef {
   key: string;
   label: string;
   layerIds: string[];
+  defaultOn?: boolean;
 }
 
 interface MapOverlayProps {
@@ -14,8 +15,16 @@ interface MapOverlayProps {
 
 export default function MapOverlay({ layers, onToggle }: MapOverlayProps) {
   const [state, setState] = useState<Record<string, boolean>>(
-    () => Object.fromEntries(layers.map((l) => [l.key, true]))
+    () => Object.fromEntries(layers.map((l) => [l.key, l.defaultOn !== false]))
   );
+
+  // Hide layers that default to off on mount
+  useEffect(() => {
+    for (const l of layers) {
+      if (l.defaultOn === false) onToggle(l.layerIds, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggle = (layer: LayerDef) => {
     const next = !state[layer.key];
@@ -51,7 +60,7 @@ export default function MapOverlay({ layers, onToggle }: MapOverlayProps) {
 }
 
 export const DEFAULT_LAYERS: LayerDef[] = [
-  { key: 'bathymetry', label: 'Bathymetry', layerIds: ['bathymetry-fill'] },
+  { key: 'bathymetry', label: 'Bathymetry', layerIds: ['bathymetry-fill'], defaultOn: false },
   { key: 'path', label: 'Planting Path', layerIds: ['path-glow', 'path-line'] },
   { key: 'seeds', label: 'Seed Points', layerIds: ['seeds-glow', 'seeds-dot'] },
 ];
@@ -61,5 +70,5 @@ export const LIVE_LAYERS: LayerDef[] = [
   { key: 'live-path', label: 'Actual Path', layerIds: ['live-path-glow', 'live-path-line'] },
   { key: 'path', label: 'Planned Path', layerIds: ['path-glow', 'path-line'] },
   { key: 'seeds', label: 'Seed Drops', layerIds: ['seeds-glow', 'seeds-dot'] },
-  { key: 'bathymetry', label: 'Bathymetry', layerIds: ['bathymetry-fill'] },
+  { key: 'bathymetry', label: 'Bathymetry', layerIds: ['bathymetry-fill'], defaultOn: false },
 ];

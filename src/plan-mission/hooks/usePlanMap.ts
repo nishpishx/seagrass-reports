@@ -95,11 +95,22 @@ export default function usePlanMap({
           id: 'plan-sectors-label',
           type: 'symbol',
           source: 'plan-sectors',
-          layout: { 'text-field': ['get', 'name'], 'text-size': 12, 'text-anchor': 'center' },
+          layout: {
+            'text-field': ['get', 'name'],
+            'text-size': ['match', ['get', 'labelType'], 'site', 14, 12],
+            'text-font': [
+              'match', ['get', 'labelType'],
+              'site', ['literal', ['DIN Pro Bold', 'Arial Unicode MS Bold']],
+              ['literal', ['DIN Pro Medium', 'Arial Unicode MS Regular']],
+            ],
+            'text-anchor': 'center',
+            'symbol-sort-key': ['match', ['get', 'labelType'], 'site', 0, 1],
+            'text-allow-overlap': false,
+          },
           paint: {
             'text-color': '#dfe8f1',
             'text-halo-color': '#0b1420',
-            'text-halo-width': 1.5,
+            'text-halo-width': ['match', ['get', 'labelType'], 'site', 2, 1.5],
           },
         });
 

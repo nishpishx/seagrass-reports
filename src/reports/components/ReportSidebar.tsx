@@ -45,7 +45,10 @@ export default function ReportSidebar({
   sectorName,
 }: ReportSidebarProps) {
   const [activeTab, setActiveTab] = useState(data?.tabs[0]?.key ?? '');
-  const selectedSite = sites.find((s) => s.id === selectedSiteId) ?? null;
+  const isAllSites = selectedSiteId === '__all__';
+  const selectedSite = isAllSites && selectedSectorId
+    ? sites.find((s) => s.sectors.some((sec) => sec.id === selectedSectorId)) ?? null
+    : sites.find((s) => s.id === selectedSiteId) ?? null;
   const isSiteView = !selectedSectorId;
 
   // Reset tab when sector changes
@@ -67,10 +70,12 @@ export default function ReportSidebar({
           Report
         </div>
         <h1 className={styles.title}>
-          {liveFeed ? `${sectorName} — Live Mission` : data?.title ?? selectedSite?.name ?? 'Select a Site'}
+          {liveFeed ? `${sectorName} — Live Mission` : data?.title ?? (isAllSites ? 'All Sites — Overview' : selectedSite?.name ?? 'Select a Site')}
         </h1>
         <p className={styles.meta}>
-          {data?.subtitle ?? (selectedSite ? `${selectedSite.region} · ${selectedSite.sectors.length} sectors` : 'Choose a study site to view reports')}
+          {data?.subtitle ?? (isAllSites
+            ? `${sites.length} sites · ${sites.reduce((n, s) => n + s.sectors.length, 0)} sectors`
+            : selectedSite ? `${selectedSite.region} · ${selectedSite.sectors.length} sectors` : 'Choose a study site to view reports')}
         </p>
       </div>
 
@@ -109,6 +114,48 @@ export default function ReportSidebar({
             totalMissions={siteTotalMissions}
             onSectorClick={(id) => onSectorChange(id)}
           />
+        )}
+
+        {/* ── All Sites overview ── */}
+        {isSiteView && isAllSites && (
+          <>
+            <StatGrid
+              stats={[
+                { value: siteTotalSeeds.toLocaleString(), label: 'Total Seeds/Shoots' },
+                { value: String(sites.reduce((n, s) => n + s.sectors.length, 0)), label: 'Sectors' },
+                { value: String(sites.length), label: 'Sites' },
+              ]}
+            />
+            {sites.map((site) => (
+              <div key={site.id}>
+                <div style={{ padding: '10px 14px 4px', fontSize: 12, fontWeight: 600, color: 'var(--rpt-text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {site.name}
+                  <span style={{ marginLeft: 6, opacity: 0.5, fontWeight: 400 }}>{site.region}</span>
+                </div>
+                {site.sectors.map((sec) => {
+                  const data = sectorDataMap.get(sec.id);
+                  return (
+                    <div
+                      key={sec.id}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', cursor: 'pointer', borderRadius: 6 }}
+                      onClick={() => onSectorChange(sec.id)}
+                    >
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: sec.color, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--rpt-text)' }}>{sec.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--rpt-text-dim)' }}>
+                          {data ? `${data.totalSeeds.toLocaleString()} ${site.plantType}` : 'Loading…'}
+                        </div>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ opacity: 0.3, flexShrink: 0 }}>
+                        <path d="M9 18l6-6-6-6" />
+                      </svg>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </>
         )}
 
         {/* ── No site selected ── */}

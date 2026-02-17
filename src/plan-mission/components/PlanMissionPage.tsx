@@ -37,22 +37,49 @@ export default function PlanMissionPage({ mapboxToken, mapStyle }: PlanMissionPa
   // ── Effect: site changed → fly to site, show polygons ──
   useEffect(() => {
     if (!loaded) return;
-    if (selectedSite) {
+    if (selectedSiteId === '__all__') {
+      // Sector polygons with original names
+      const sectorFeatures: GeoJSON.Feature[] = sites.flatMap((site) =>
+        site.sectors.map((s) => ({
+          type: 'Feature' as const,
+          properties: { id: s.id, name: s.name, color: s.color },
+          geometry: { type: 'Polygon' as const, coordinates: [s.boundary] },
+        })),
+      );
+      // Site-level labels at each site center
+      const siteLabels: GeoJSON.Feature[] = sites.map((site) => ({
+        type: 'Feature' as const,
+        properties: { name: site.name, labelType: 'site' },
+        geometry: { type: 'Point' as const, coordinates: site.center },
+      }));
+      setSectorPolygons({ type: 'FeatureCollection', features: [...sectorFeatures, ...siteLabels] });
+    } else if (selectedSite) {
       flyTo(selectedSite.center, selectedSite.zoom);
       setSectorPolygons(sectorsToGeoJSON(selectedSite.sectors));
     } else {
       setSectorPolygons(null);
     }
-  }, [selectedSiteId, loaded, selectedSite, flyTo, setSectorPolygons]);
+  }, [selectedSiteId, loaded, selectedSite, sites, flyTo, setSectorPolygons]);
 
   // ── Effect: sector selected → zoom in ──
   useEffect(() => {
-    if (!loaded || !selectedSectorId || !selectedSite) return;
-    const sector = selectedSite.sectors.find((s) => s.id === selectedSectorId);
-    if (sector) {
-      flyTo(sector.center, 15);
+    if (!loaded || !selectedSectorId) return;
+    if (selectedSiteId === '__all__') {
+      // Find sector across all sites
+      for (const site of sites) {
+        const sector = site.sectors.find((s) => s.id === selectedSectorId);
+        if (sector) {
+          flyTo(sector.center, 15);
+          return;
+        }
+      }
+    } else if (selectedSite) {
+      const sector = selectedSite.sectors.find((s) => s.id === selectedSectorId);
+      if (sector) {
+        flyTo(sector.center, 15);
+      }
     }
-  }, [selectedSectorId, loaded, selectedSite, flyTo]);
+  }, [selectedSectorId, loaded, selectedSiteId, selectedSite, sites, flyTo]);
 
   // ── Callbacks for sidebar ──
   const handleAddSite = useCallback(

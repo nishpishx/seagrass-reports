@@ -65,8 +65,9 @@ export default function PlanMissionSidebar({
   const [plantSpacing, setPlantSpacing] = useState('');
   const [pathGenerated, setPathGenerated] = useState(false);
 
+  const isAllSites = selectedSiteId === '__all__';
   const selectedSite = sites.find((s) => s.id === selectedSiteId) ?? null;
-  const hasSite = selectedSiteId !== null;
+  const hasSite = selectedSiteId !== null && !isAllSites;
 
   // ── Update draft preview when rectangle params change ──
   useEffect(() => {
@@ -243,6 +244,7 @@ export default function PlanMissionSidebar({
             onChange={(e) => handleSiteSelect(e.target.value)}
           >
             <option value="">Select a study site</option>
+            <option value="__all__">All Sites</option>
             {sites.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name} — {s.region}
@@ -319,16 +321,26 @@ export default function PlanMissionSidebar({
           <select
             className={styles.select}
             value={showNewSector ? '__add_new__' : selectedSectorId ?? ''}
-            disabled={!hasSite}
+            disabled={!hasSite && !isAllSites}
             onChange={(e) => handleSectorSelect(e.target.value)}
           >
             <option value="">Select a sector</option>
-            {selectedSite?.sectors.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-            <option value="__add_new__">+ Add New Sector</option>
+            {isAllSites
+              ? sites.map((site) => (
+                  <optgroup key={site.id} label={site.name}>
+                    {site.sectors.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))
+              : selectedSite?.sectors.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+            {!isAllSites && <option value="__add_new__">+ Add New Sector</option>}
           </select>
 
           {/* ── New Sector panel ── */}

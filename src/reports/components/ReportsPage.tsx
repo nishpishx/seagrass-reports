@@ -22,17 +22,30 @@ export default function ReportsPage({ mapboxToken, mapStyle }: ReportsPageProps)
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(STUDY_SITES[0].id);
   const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
 
+  const isAllSites = selectedSiteId === '__all__';
   const selectedSite = STUDY_SITES.find((s) => s.id === selectedSiteId) ?? null;
-  const selectedSector = selectedSite?.sectors.find((s) => s.id === selectedSectorId) ?? null;
+
+  // When "All Sites" selected, find the sector's parent site
+  const selectedSectorSite = isAllSites && selectedSectorId
+    ? STUDY_SITES.find((s) => s.sectors.some((sec) => sec.id === selectedSectorId)) ?? null
+    : selectedSite;
+  const selectedSector = selectedSectorSite?.sectors.find((s) => s.id === selectedSectorId) ?? null;
 
   const isLiveMode = selectedSector?.status === 'active';
 
-  // ── Generate sector data for selected site ──
+  // ── Generate sector data for selected site (or all sites) ──
   const sectorDataMap = useMemo(() => {
     const map = new Map<string, SectorData>();
-    if (!selectedSite) return map;
-    for (const sector of selectedSite.sectors) {
-      map.set(sector.id, generateSectorData(sector, selectedSite));
+    if (isAllSites) {
+      for (const site of STUDY_SITES) {
+        for (const sector of site.sectors) {
+          map.set(sector.id, generateSectorData(sector, site));
+        }
+      }
+    } else if (selectedSite) {
+      for (const sector of selectedSite.sectors) {
+        map.set(sector.id, generateSectorData(sector, selectedSite));
+      }
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -41,6 +54,22 @@ export default function ReportsPage({ mapboxToken, mapStyle }: ReportsPageProps)
   const activeSectorData = selectedSectorId ? sectorDataMap.get(selectedSectorId) ?? null : null;
 
   const siteSummary = useMemo(() => {
+    if (isAllSites) {
+      // Aggregate across all sites
+      let totalSeeds = 0;
+      for (const [, data] of sectorDataMap) totalSeeds += data.totalSeeds;
+      const totalSectors = STUDY_SITES.reduce((n, s) => n + s.sectors.length, 0);
+      return {
+        totalSeeds,
+        totalMissions: 0,
+        reportData: {
+          title: 'All Sites — Overview',
+          subtitle: `${STUDY_SITES.length} sites · ${totalSectors} sectors · ${totalSeeds.toLocaleString()} total`,
+          missions: [],
+          tabs: [],
+        },
+      };
+    }
     if (!selectedSite) return null;
     return buildSiteSummary(selectedSite, sectorDataMap);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,13 +114,34 @@ export default function ReportsPage({ mapboxToken, mapStyle }: ReportsPageProps)
 
   // ── Effect: site changed → fly to site, show sector polygons ──
   useEffect(() => {
-    if (!selectedSite || !loaded) return;
-    flyTo(selectedSite.center, selectedSite.zoom);
-    setSectorPolygons(sectorsToGeoJSON(selectedSite.sectors));
-    setSectorPolygonsVisible(true);
-    setSectorDataVisible(false);
-    setLiveLayersVisible(false);
-  }, [selectedSiteId, loaded, flyTo, setSectorPolygons, setSectorPolygonsVisible, setSectorDataVisible, setLiveLayersVisible, selectedSite]);
+    if (!loaded) return;
+    if (isAllSites) {
+      // Sector polygons with original names
+      const sectorFeatures: GeoJSON.Feature[] = STUDY_SITES.flatMap((site) =>
+        site.sectors.map((s) => ({
+          type: 'Feature' as const,
+          properties: { id: s.id, name: s.name, color: s.color },
+          geometry: { type: 'Polygon' as const, coordinates: [s.boundary] },
+        })),
+      );
+      // Site-level labels at each site center
+      const siteLabels: GeoJSON.Feature[] = STUDY_SITES.map((site) => ({
+        type: 'Feature' as const,
+        properties: { name: site.name, labelType: 'site' },
+        geometry: { type: 'Point' as const, coordinates: site.center },
+      }));
+      setSectorPolygons({ type: 'FeatureCollection', features: [...sectorFeatures, ...siteLabels] });
+      setSectorPolygonsVisible(true);
+      setSectorDataVisible(false);
+      setLiveLayersVisible(false);
+    } else if (selectedSite) {
+      flyTo(selectedSite.center, selectedSite.zoom);
+      setSectorPolygons(sectorsToGeoJSON(selectedSite.sectors));
+      setSectorPolygonsVisible(true);
+      setSectorDataVisible(false);
+      setLiveLayersVisible(false);
+    }
+  }, [selectedSiteId, loaded, isAllSites, flyTo, setSectorPolygons, setSectorPolygonsVisible, setSectorDataVisible, setLiveLayersVisible, selectedSite]);
 
   // ── Effect: sector changed → zoom to sector & load data, or back to site ──
   useEffect(() => {
@@ -126,6 +176,12 @@ export default function ReportsPage({ mapboxToken, mapStyle }: ReportsPageProps)
         setSectorDataVisible(true);
         setSectorPolygonsVisible(false);
       }
+    } else if (isAllSites) {
+      // Back to all-sites overview
+      historicalSeedsRef.current = [];
+      setSectorDataVisible(false);
+      setLiveLayersVisible(false);
+      setSectorPolygonsVisible(true);
     } else if (selectedSite) {
       historicalSeedsRef.current = [];
       flyTo(selectedSite.center, selectedSite.zoom);
