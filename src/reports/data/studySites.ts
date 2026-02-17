@@ -24,10 +24,10 @@ const SECTOR_TARGETS: Record<string, number> = {
   'ph-study-b':   1_000,
   'ph-study-c':   1_000,
   'ph-study-d':   1_000,
-  'ph-ctrl-a':      200,
-  'ph-ctrl-b':      200,
-  'ph-ctrl-c':      200,
-  'ph-ctrl-d':      200,
+  'ph-ctrl-a':    1_000,
+  'ph-ctrl-b':    1_000,
+  'ph-ctrl-c':    1_000,
+  'ph-ctrl-d':    1_000,
 };
 
 // ═══ Study Sites ═══
@@ -175,7 +175,7 @@ export const STUDY_SITES: StudySite[] = [
     region: "Preacher's Hole, FL",
     center: [-80.42478, 27.77464],
     zoom: 19,
-    plantType: 'seeds',
+    plantType: 'shoots',
     sectors: [
       {
         id: 'ph-study-a',
@@ -231,18 +231,18 @@ export const STUDY_SITES: StudySite[] = [
     id: 'ph-control',
     name: "Preacher's Hole Control",
     region: "Preacher's Hole, FL",
-    center: [-80.42325, 27.77464],
+    center: [-80.42586, 27.77560],
     zoom: 19,
-    plantType: 'seeds',
+    plantType: 'shoots',
     sectors: [
       {
         id: 'ph-ctrl-a',
         name: 'NW Quadrant',
-        center: [-80.42337, 27.77474],
+        center: [-80.42598, 27.77570],
         boundary: [
-          [-80.42348, 27.77464], [-80.42325, 27.77464],
-          [-80.42325, 27.77484], [-80.42348, 27.77484],
-          [-80.42348, 27.77464],
+          [-80.42609, 27.77560], [-80.42586, 27.77560],
+          [-80.42586, 27.77580], [-80.42609, 27.77580],
+          [-80.42609, 27.77560],
         ],
         color: '#34d399',
         status: 'planned',
@@ -250,11 +250,11 @@ export const STUDY_SITES: StudySite[] = [
       {
         id: 'ph-ctrl-b',
         name: 'NE Quadrant',
-        center: [-80.42314, 27.77474],
+        center: [-80.42575, 27.77570],
         boundary: [
-          [-80.42325, 27.77464], [-80.42302, 27.77464],
-          [-80.42302, 27.77484], [-80.42325, 27.77484],
-          [-80.42325, 27.77464],
+          [-80.42586, 27.77560], [-80.42563, 27.77560],
+          [-80.42563, 27.77580], [-80.42586, 27.77580],
+          [-80.42586, 27.77560],
         ],
         color: '#38bdf8',
         status: 'planned',
@@ -262,11 +262,11 @@ export const STUDY_SITES: StudySite[] = [
       {
         id: 'ph-ctrl-c',
         name: 'SW Quadrant',
-        center: [-80.42337, 27.77454],
+        center: [-80.42598, 27.77550],
         boundary: [
-          [-80.42348, 27.77444], [-80.42325, 27.77444],
-          [-80.42325, 27.77464], [-80.42348, 27.77464],
-          [-80.42348, 27.77444],
+          [-80.42609, 27.77540], [-80.42586, 27.77540],
+          [-80.42586, 27.77560], [-80.42609, 27.77560],
+          [-80.42609, 27.77540],
         ],
         color: '#c084fc',
         status: 'planned',
@@ -274,11 +274,11 @@ export const STUDY_SITES: StudySite[] = [
       {
         id: 'ph-ctrl-d',
         name: 'SE Quadrant',
-        center: [-80.42314, 27.77454],
+        center: [-80.42575, 27.77550],
         boundary: [
-          [-80.42325, 27.77444], [-80.42302, 27.77444],
-          [-80.42302, 27.77464], [-80.42325, 27.77464],
-          [-80.42325, 27.77444],
+          [-80.42586, 27.77540], [-80.42563, 27.77540],
+          [-80.42563, 27.77560], [-80.42586, 27.77560],
+          [-80.42586, 27.77540],
         ],
         color: '#fb923c',
         status: 'planned',
@@ -290,8 +290,124 @@ export const STUDY_SITES: StudySite[] = [
 // ═══ Generate all data for a single sector ═══
 
 export function generateSectorData(sector: Sector, site: StudySite): SectorData {
-  const path = generatePath(sector.boundary);
   const targetCount = SECTOR_TARGETS[sector.id];
+  // Only densify the path for planned sectors (no jitter → need unique positions)
+  const path = generatePath(sector.boundary, sector.status === 'planned' ? targetCount : undefined);
+
+  // Planned sectors: no missions yet — show all dots in gray, no mission data
+  if (sector.status === 'planned') {
+    const PLANNED_COLOR = '#9ca3af';
+    const placeholder = [{ id: 0, name: 'Planned', date: '', color: PLANNED_COLOR, seedCount: targetCount ?? 0 }];
+    const seeds = generateSeeds(path, targetCount, placeholder, false);
+    const unit = site.plantType;
+    const unitSingular = unit === 'seeds' ? 'seed' : 'shoot';
+    const unitCap = unit === 'seeds' ? 'Seeds' : 'Shoots';
+    const count = targetCount ?? 0;
+
+    // ── Compute sector geometry from boundary ──
+    const DEG_TO_M = 111_320;
+    const p0 = sector.boundary[0];
+    const p1 = sector.boundary[1];
+    const p3 = sector.boundary[3];
+    const cosLat = Math.cos((p0[1] * Math.PI) / 180);
+    const edgeLngM = Math.abs((p1[0] - p0[0]) * cosLat * DEG_TO_M);
+    const edgeLatM = Math.abs((p3[1] - p0[1]) * DEG_TO_M);
+    const sweepLen = Math.max(edgeLngM, edgeLatM);
+    const stepLen = Math.min(edgeLngM, edgeLatM);
+    const areaM2 = edgeLngM * edgeLatM;
+
+    // Mirror generatePath scaling to get actual row/point counts
+    let numPasses = Math.max(2, Math.round(stepLen / 30));
+    let pointsPerPass = Math.max(4, Math.round(sweepLen / 10));
+    if (count > 0) {
+      const cur = (numPasses + 1) * (pointsPerPass + 1);
+      if (cur < count) {
+        const sc = Math.sqrt(count / cur);
+        numPasses = Math.max(numPasses, Math.ceil(numPasses * sc));
+        pointsPerPass = Math.max(pointsPerPass, Math.ceil(pointsPerPass * sc));
+      }
+    }
+    const rowSpacing = stepLen / numPasses;
+    const pointSpacing = sweepLen / pointsPerPass;
+    const densityPer100 = Math.round((count / areaM2) * 100 * 10) / 10;
+    const heading = Math.round(
+      ((Math.atan2(p1[0] - p0[0], p1[1] - p0[1]) * 180) / Math.PI + 360) % 360,
+    );
+    const totalPathM = Math.round(numPasses * sweepLen + (numPasses - 1) * rowSpacing);
+
+    return {
+      sectorId: sector.id,
+      pathGeoJSON: pathToGeoJSON(path),
+      seedsGeoJSON: seedsToGeoJSON(seeds),
+      bathymetryGeoJSON: generateBathymetryGeoJSON(sector.center),
+      reportData: {
+        title: `${site.name} — ${sector.name}`,
+        subtitle: `Planned · ${count.toLocaleString()} ${unit} target`,
+        missions: [],
+        tabs: [
+          {
+            key: 'plan',
+            label: 'Plan',
+            sections: [
+              {
+                title: 'Planting Targets',
+                status: 'pass',
+                description: `Target ${unitSingular} placement and density for this sector.`,
+                hasMapLayer: true,
+                metrics: [
+                  { label: `Target ${unitCap}`, value: count, target: count, unit: unitSingular === 'seed' ? 'seeds' : 'shoots' },
+                  { label: 'Target Density', value: densityPer100, target: 30, unit: `${unit}/100m²` },
+                  { label: 'Sector Area', value: Math.round(areaM2), target: Math.round(areaM2), unit: 'm²' },
+                ],
+              },
+              {
+                title: 'Depth Targets',
+                status: 'pass',
+                description: `Planned depth distribution for resilient meadow establishment.`,
+                metrics: [
+                  { label: 'Shallow (0–5m)', value: 25, target: 25, unit: '%' },
+                  { label: 'Mid (5–12m)', value: 35, target: 35, unit: '%' },
+                  { label: 'Deep (12–20m)', value: 25, target: 25, unit: '%' },
+                  { label: 'Very Deep (20m+)', value: 15, target: 15, unit: '%' },
+                ],
+              },
+            ],
+          },
+          {
+            key: 'path',
+            label: 'Path',
+            sections: [
+              {
+                title: 'Lawnmower Configuration',
+                status: 'pass',
+                description: 'Boustrophedon path parameters for the planting robot.',
+                hasMapLayer: true,
+                metrics: [
+                  { label: 'Number of Rows', value: numPasses + 1, target: numPasses + 1, unit: 'rows' },
+                  { label: 'Row Spacing', value: Math.round(rowSpacing * 100) / 100, target: 1, unit: 'm' },
+                  { label: 'Points per Row', value: pointsPerPass + 1, target: pointsPerPass + 1, unit: 'pts' },
+                  { label: 'Point Spacing', value: Math.round(pointSpacing * 100) / 100, target: 1, unit: 'm' },
+                ],
+              },
+              {
+                title: 'Path Geometry',
+                status: 'pass',
+                description: 'Overall path dimensions and heading.',
+                metrics: [
+                  { label: 'Path Heading', value: heading, target: heading, unit: '°' },
+                  { label: 'Total Path Length', value: totalPathM, target: totalPathM, unit: 'm' },
+                  { label: 'Plot Width', value: Math.round(edgeLngM * 10) / 10, target: Math.round(edgeLngM * 10) / 10, unit: 'm' },
+                  { label: 'Plot Height', value: Math.round(edgeLatM * 10) / 10, target: Math.round(edgeLatM * 10) / 10, unit: 'm' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      totalSeeds: seeds.length,
+      missionColors: [PLANNED_COLOR],
+    };
+  }
 
   // Scale mission seed counts to match this sector's target
   const baseTotal = MISSIONS.reduce((sum, m) => sum + m.seedCount, 0);

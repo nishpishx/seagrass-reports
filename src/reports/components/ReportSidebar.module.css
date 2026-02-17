@@ -44,6 +44,8 @@
   flex-shrink: 0;
 }
 .tabBtn {
+  flex: 1;
+  text-align: center;
   padding: 10px 16px;
   border: none;
   border-bottom: 2px solid transparent;

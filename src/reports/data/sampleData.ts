@@ -33,7 +33,7 @@ const DEFAULT_BOUNDARY: [number, number][] = [
  * Generate a boustrophedon (lawnmower) path inside a rectangular sector boundary.
  * The path sweeps back and forth along the longer axis of the rectangle.
  */
-export function generatePath(boundary: [number, number][] = DEFAULT_BOUNDARY): [number, number][] {
+export function generatePath(boundary: [number, number][] = DEFAULT_BOUNDARY, minPoints?: number): [number, number][] {
   // boundary = [p0, p1, p2, p3, p0] (closed ring, 4 corners)
   const p0 = boundary[0];
   const p1 = boundary[1];
@@ -60,10 +60,18 @@ export function generatePath(boundary: [number, number][] = DEFAULT_BOUNDARY): [
   }
 
   // ~30m between parallel passes, ~10m between points
-  const LINE_SPACING_M = 30;
-  const POINT_SPACING_M = 10;
-  const numPasses = Math.max(2, Math.round(stepLen / LINE_SPACING_M));
-  const pointsPerPass = Math.max(4, Math.round(sweepLen / POINT_SPACING_M));
+  let numPasses = Math.max(2, Math.round(stepLen / 30));
+  let pointsPerPass = Math.max(4, Math.round(sweepLen / 10));
+
+  // If more path points are needed, shrink row/point spacing proportionally
+  if (minPoints != null) {
+    const currentTotal = (numPasses + 1) * (pointsPerPass + 1);
+    if (currentTotal < minPoints) {
+      const scale = Math.sqrt(minPoints / currentTotal);
+      numPasses = Math.max(numPasses, Math.ceil(numPasses * scale));
+      pointsPerPass = Math.max(pointsPerPass, Math.ceil(pointsPerPass * scale));
+    }
+  }
 
   // Inset slightly (5%) so the path doesn't sit exactly on the boundary edge
   const inset = 0.05;
@@ -93,6 +101,7 @@ export function generateSeeds(
   path: [number, number][],
   totalCount?: number,
   missions: Mission[] = MISSIONS,
+  jitter = true,
 ): SeedPoint[] {
   const seeds: SeedPoint[] = [];
   const baseCounts = missions.map((m) => m.seedCount);
@@ -110,10 +119,10 @@ export function generateSeeds(
       // Distribute seeds evenly along the path segment
       const idx = Math.min(Math.floor((s / counts[m]) * seg.length), seg.length - 1);
       const base = seg[idx];
+      const j = jitter ? 0.00005 : 0;
       seeds.push({
-        // Tiny jitter (~3m) so dots don't stack exactly on the line
-        lng: base[0] + (Math.random() - 0.5) * 0.00005,
-        lat: base[1] + (Math.random() - 0.5) * 0.00005,
+        lng: base[0] + (Math.random() - 0.5) * j,
+        lat: base[1] + (Math.random() - 0.5) * j,
         mission: m,
         missionName: missions[m].name,
         depth: Math.round((1.5 + Math.random() * 22) * 10) / 10,
